@@ -21,7 +21,22 @@ const state = load();
 let cat = null;
 let busy = false;
 
-function say(text) { $('#bubble').textContent = text; }
+// 말풍선이 바뀔 때마다 뽁 튀어나오고, talk 이면 고양이 입이 글자 수만큼 뻐끔거린다
+let talkTimer = 0;
+function say(text, talk = true) {
+  const b = $('#bubble');
+  b.textContent = text;
+  b.classList.remove('pop');
+  b.getBoundingClientRect(); // 애니메이션을 처음부터 다시 틀기 위한 리플로우
+  b.classList.add('pop');
+  const stage = $('#stage');
+  clearTimeout(talkTimer);
+  stage.classList.remove('talk');
+  if (talk && !calm.matches && !stage.classList.contains('asleep')) {
+    stage.classList.add('talk');
+    talkTimer = setTimeout(() => stage.classList.remove('talk'), Math.min(2200, 300 + text.length * 60));
+  }
+}
 const eaten = () => state.eaten[cat] || 0;
 const isFull = () => eaten() >= CATS[cat].max;
 
@@ -64,7 +79,11 @@ function choose(id) {
   $('#feed').hidden = false;
   $('#help').hidden = true;
   render();
-  say(isFull() ? CATS[id].full : CATS[id].hello);
+  // 무대에 통 떨어지며 등장
+  const stage = $('#stage');
+  stage.classList.add('enter');
+  setTimeout(() => stage.classList.remove('enter'), 650);
+  setTimeout(() => say(isFull() ? CATS[id].full : CATS[id].hello), calm.matches ? 0 : 350);
 }
 
 // ---- 효과음: 파일 없이 Web Audio로 만든다 ----
@@ -155,37 +174,62 @@ const ICON = {
   sparkle: icon('<path d="M12 2.5l2.2 7.3 7.3 2.2-7.3 2.2L12 21.5l-2.2-7.3L2.5 12l7.3-2.2z" fill="#f6cf5a" stroke="#d9a930" stroke-width="1" stroke-linejoin="round"/>'),
   flame: icon('<path d="M12 2.5c1 4 6 6 6 11.5a6 6 0 0 1-12 0c0-3 1.7-5 3-7 .2 2.6 1.2 3.8 2.8 4.2C10.8 8.4 11 5 12 2.5z" fill="#f2874a" stroke="#d4602a" stroke-width="1.2" stroke-linejoin="round"/><path d="M12 13.5c1.5 1.5 2.5 2.6 2.5 4a2.5 2.5 0 0 1-5 0c0-1.4 1-2.5 2.5-4z" fill="#ffd36b"/>'),
   lemon: icon('<circle cx="12" cy="12" r="8.5" fill="#f7dc5c" stroke="#d9b52c" stroke-width="1.2"/><circle cx="12" cy="12" r="6" fill="#fbeea0"/><path d="M12 6v12M6.8 9l10.4 6M6.8 15l10.4-6" stroke="#f0d34a" stroke-width="1.2"/>'),
+  heart: icon('<path d="M12 20.5S4.5 16 4.5 10A4 4 0 0 1 12 7.6 4 4 0 0 1 19.5 10c0 6-7.5 10.5-7.5 10.5z" fill="#f491a5" stroke="#d6607a" stroke-width="1.2" stroke-linejoin="round"/><circle cx="8.6" cy="9.6" r="1.4" fill="#fff" opacity="0.8"/>'),
 };
+// face: 맛 반응 때 바뀌는 표정 (happy ^^, squint ><)
 const REACT = {
-  짠맛: { cls: 'salty', fx: ICON.drop },
-  쓴맛: { cls: 'bitter', fx: ICON.leaf },
+  짠맛: { cls: 'salty', fx: ICON.drop, face: 'happy' },
+  쓴맛: { cls: 'bitter', fx: ICON.leaf, face: 'squint' },
   싱거움: { cls: 'bland', fx: '?' },
   눅눅함: { cls: 'soggy', fx: ICON.sweat },
-  과자맛: { cls: 'snack', fx: ICON.sparkle },
-  매운맛: { cls: 'spicy', fx: ICON.flame },
-  신맛: { cls: 'sour', fx: ICON.lemon },
+  과자맛: { cls: 'snack', fx: ICON.sparkle, face: 'happy' },
+  매운맛: { cls: 'spicy', fx: ICON.flame, face: 'squint' },
+  신맛: { cls: 'sour', fx: ICON.lemon, face: 'squint' },
 };
-let reactTimer = 0;
+const MOODS = ['face-happy', 'face-squint', 'pet', ...Object.values(REACT).map((v) => `t-${v.cls}`)];
+let moodTimer = 0;
 
-function react(taste) {
-  const r = REACT[taste];
-  if (!r) return;
+// 잠깐 동안만 표정·동작 클래스를 붙였다 뗀다 (맛 반응, 쓰다듬기 공용)
+function mood(classes, ms) {
   const stage = $('#stage');
-  stage.classList.remove(...Object.values(REACT).map((v) => `t-${v.cls}`));
-  stage.classList.add(`t-${r.cls}`);
-  clearTimeout(reactTimer);
-  reactTimer = setTimeout(() => stage.classList.remove(`t-${r.cls}`), 1800);
+  clearTimeout(moodTimer);
+  stage.classList.remove(...MOODS);
+  stage.classList.add(...classes);
+  moodTimer = setTimeout(() => stage.classList.remove(...classes), ms);
+}
 
+// 고양이 위로 작은 그림이 몽글몽글 떠오른다
+function burst(html, n = 3) {
   if (calm.matches) return;
-  for (let i = 0; i < 3; i++) {
+  for (let i = 0; i < n; i++) {
     const el = document.createElement('span');
     el.className = 'fx';
-    el.innerHTML = r.fx;
-    el.style.left = `${30 + i * 20 + Math.random() * 10}%`;
+    el.innerHTML = html;
+    el.style.left = `${30 + i * (40 / n) + Math.random() * 10}%`;
     el.style.animationDelay = `${i * 120}ms`;
     el.addEventListener('animationend', () => el.remove());
     $('#fx').append(el);
   }
+}
+
+function react(taste) {
+  const r = REACT[taste];
+  if (!r) return;
+  mood([`t-${r.cls}`, ...(r.face ? [`face-${r.face}`] : [])], 1800);
+  burst(r.fx);
+}
+
+// ---- 쓰다듬기: 고양이를 누르면 ^^ 하고 골골 ----
+const purr = () => { for (let k = 0; k < 6; k++) setTimeout(() => tone(120, 95, 0.08, 0.07), k * 85); };
+function petCat() {
+  if (!cat || busy) return;
+  if (isFull()) return say('...쿨쿨', false);
+  wakeAudio();
+  mood(['pet', 'face-happy'], 1100);
+  burst(ICON.heart, 4);
+  purr();
+  const lines = CATS[cat].pet;
+  say(lines[Math.floor(Math.random() * lines.length)]);
 }
 
 async function feed(e) {
@@ -202,7 +246,7 @@ async function feed(e) {
   $('#worry').disabled = true;
   $('#help').hidden = true;
   $('#worry').value = ''; // 걱정은 화면에서 사라지고 다시 볼 수 없다
-  say('아—');
+  say('아—', false);
 
   const ask = fetch('/api/feed', {
     method: 'POST',
@@ -220,7 +264,7 @@ async function feed(e) {
   gulp();
 
   // 2) 고양이마다 다르게 씹는다 (AI 응답을 기다리는 시간도 여기서 흡수)
-  say(c.chewing);
+  say(c.chewing, false);
   stage.classList.add('eating', `eat-${cat}`);
   const [res] = await Promise.all([ask, wait(calm.matches ? 300 : c.chew)]);
   stage.classList.remove('eating', `eat-${cat}`);
@@ -256,6 +300,10 @@ $('#cat-list').addEventListener('click', (e) => {
   if (b) choose(b.dataset.id);
 });
 $('#form').addEventListener('submit', feed);
+$('#stage').addEventListener('click', petCat);
+$('#stage').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); petCat(); }
+});
 $('#change').addEventListener('click', () => {
   if (busy) return;
   $('#feed').hidden = true;
