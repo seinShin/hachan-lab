@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>냠냠걱정</title>
+  <meta name="description" content="걱정을 적으면 고양이가 먹어치워요." />
+  <link rel="stylesheet" href="/src/style.css" />
+</head>
+<body>
+  <main id="app">
+    <h1>냠냠걱정</h1>
+
+    <section id="select">
+      <p class="sub">누구한테 먹일까요?</p>
+      <div id="cat-list"></div>
+    </section>
+
+    <section id="feed" hidden>
+      <div id="bubble" aria-live="polite"></div>
+      <div class="stage-wrap">
+        <div id="stage"></div>
+        <div id="fx" aria-hidden="true"></div>
+      </div>
+      <p id="belly"></p>
+      <form id="form">
+        <textarea id="worry" maxlength="300" rows="3" placeholder="걱정을 적어주세요. 먹으면 사라져요."></textarea>
+        <button id="feed-btn" type="submit">먹이기</button>
+      </form>
+      <p id="help" hidden>
+        혼자 감당하기 어려울 땐 자살예방상담전화 <a href="tel:109">109</a> (24시간) 로 이야기할 수 있어요.
+      </p>
+      <p id="menu"></p>
+      <div class="tools">
+        <button id="change" type="button">다른 고양이</button>
+        <button id="sound" type="button">소리 끄기</button>
+      </div>
+    </section>
+  </main>
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>
