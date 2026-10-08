@@ -123,9 +123,9 @@ const overlay = $('#overlay'), toastEl = $('#toast');
 const DAY = 60;           // 게임 한 판 = 60초 = 09:00~18:00
 // dash: 회피 대시 속도, dashCd: 대시 후 지쳐 있는 시간, juke: 초당 혼자 튀는 확률, tp: 순간이동 쿨다운, hits: 잡아야 하는 횟수
 const STAGES = [
-  { who: '담당', max: 430, flee: 150, wander: 100, scale: 1,    decoys: 0, clones: 0, tp: 4.5, dash: 800,  dashCd: 2.4, juke: 0.12, hits: 1 },
-  { who: '팀장', max: 500, flee: 170, wander: 140, scale: 0.9,  decoys: 2, clones: 1, tp: 3.5, dash: 950,  dashCd: 2.0, juke: 0.25, hits: 1 },
-  { who: '부장', max: 570, flee: 190, wander: 170, scale: 0.82, decoys: 3, clones: 2, tp: 2.8, dash: 1100, dashCd: 1.7, juke: 0.4,  hits: 2 },
+  { who: '담당', max: 455, flee: 160, wander: 110, scale: 1,    decoys: 0, clones: 0, tp: 3.7, dash: 900,  dashCd: 1.9,  juke: 0.18, hits: 1 },
+  { who: '팀장', max: 540, flee: 182, wander: 155, scale: 0.88, decoys: 2, clones: 1, tp: 2.8, dash: 1100, dashCd: 1.55, juke: 0.37, hits: 1 },
+  { who: '부장', max: 615, flee: 202, wander: 190, scale: 0.78, decoys: 3, clones: 2, tp: 2.3, dash: 1275, dashCd: 1.3,  juke: 0.6,  hits: 2 },
 ];
 const TAUNTS = ['어딜', '내일 해', '월급날은 지나고', '인수인계는?', '아직 이르다', '연차부터 써', '퇴직금 계산해봤어?'];
 const DECOYS = ['야근하기', '회식 참석', '주말 출근', '보고서 수정'];
@@ -212,15 +212,15 @@ function caught() {
 function step(dt) {
   const st = STAGES[Math.min(S.stage, 2)], b = S.b, p = S.ptr;
   S.dashCd -= dt; S.tpCd -= dt;
-  const max = st.max * (S.dashCd > 0 ? 0.55 : 1);   // 지쳐 있는 동안은 느려짐
+  const max = st.max * (S.dashCd > 0 ? 0.75 : 1);   // 지쳐 있는 동안은 느려짐
   const fade = Math.max(0, 1 - dt * 6); p.vx *= fade; p.vy *= fade;
   // 버튼: 평소엔 어슬렁, 포인터가 가까우면 반대쪽으로 도망
   b.turn -= dt; if (b.turn <= 0) { b.heading += rand(-1.6, 1.6); b.turn = rand(0.4, 1.1); }
   let dx = Math.cos(b.heading) * st.wander, dy = Math.sin(b.heading) * st.wander, near = false;
   const cx = b.x + b.w / 2, cy = b.y + b.h / 2;
   if (S.mode === 'play' && p.on) {
-    // 포인터의 지금 위치가 아니라 0.06초 뒤 위치를 보고 피함
-    const ax = cx - (p.x + p.vx * 0.06), ay = cy - (p.y + p.vy * 0.06), d = Math.hypot(ax, ay) || 1;
+    // 포인터의 지금 위치가 아니라 0.08초 뒤 위치를 보고 피함
+    const ax = cx - (p.x + p.vx * 0.08), ay = cy - (p.y + p.vy * 0.08), d = Math.hypot(ax, ay) || 1;
     const closing = (p.vx * ax + p.vy * ay) / d;
     if (d < st.flee) {
       near = true;
@@ -234,7 +234,7 @@ function step(dt) {
       if (d < 70 && S.tpCd <= 0 && S.dashCd <= 0 && (edge || S.stage === 2)) { blink(); S.tpCd = st.tp; say('뿅'); }
     }
     // 포인터가 빠르게 덮쳐 오면 옆으로 대시
-    if (b.dash <= 0 && S.dashCd <= 0 && d < st.flee * 1.3 && closing > 700) { dash(ax / d, ay / d); say('휙'); }
+    if (b.dash <= 0 && S.dashCd <= 0 && d < st.flee * 1.3 && closing > 575) { dash(ax / d, ay / d); say('휙'); }
   }
   // 아무도 안 쫓아와도 가끔 혼자 튐
   if (S.mode === 'play' && !near && S.dashCd <= 0 && Math.random() < st.juke * dt) dash(Math.cos(b.heading), Math.sin(b.heading));
