@@ -5,37 +5,59 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>냠냠걱정</title>
   <meta name="description" content="걱정을 적으면 고양이가 먹어치워요." />
+  <meta name="theme-color" content="#f7e6cc" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Jua&family=Gowun+Dodum&display=swap" />
   <link rel="stylesheet" href="/src/style.css" />
 </head>
 <body>
   <main id="app">
-    <h1>냠냠걱정</h1>
+    <header class="sign">
+      <div class="sign-board">
+        <h1>냠냠걱정</h1>
+        <p>걱정 먹는 고양이 식당</p>
+      </div>
+    </header>
 
     <section id="select">
-      <p class="sub">누구한테 먹일까요?</p>
-      <div id="cat-list"></div>
+      <p class="sub">오늘은 누구한테 먹일까요?</p>
+      <div class="shelf">
+        <div id="cat-list"></div>
+      </div>
+      <p class="hint">걱정을 적어 주면 고양이가 냠냠 먹어치워요.<br />먹은 걱정은 다시 볼 수 없어요.</p>
     </section>
 
     <section id="feed" hidden>
-      <div id="bubble" aria-live="polite"></div>
-      <div class="stage-wrap">
-        <div id="stage"></div>
-        <div id="fx" aria-hidden="true"></div>
+      <div class="scene">
+        <div class="window" aria-hidden="true"></div>
+        <div id="bubble" aria-live="polite"></div>
+        <div class="stage-wrap">
+          <div id="stage"></div>
+          <div id="fx" aria-hidden="true"></div>
+        </div>
+        <div class="counter" aria-hidden="true"></div>
       </div>
-      <p id="belly"></p>
-      <form id="form">
-        <textarea id="worry" maxlength="300" rows="3" placeholder="걱정을 적어주세요. 먹으면 사라져요."></textarea>
+      <div id="belly"></div>
+
+      <form id="form" class="order">
+        <label class="order-title" for="worry">걱정 주문서</label>
+        <textarea id="worry" maxlength="300" rows="3" placeholder="여기에 걱정을 적어 주세요. 먹으면 사라져요."></textarea>
         <button id="feed-btn" type="submit">먹이기</button>
       </form>
       <p id="help" hidden>
         혼자 감당하기 어려울 땐 자살예방상담전화 <a href="tel:109">109</a> (24시간) 로 이야기할 수 있어요.
       </p>
-      <p id="menu"></p>
+
+      <div id="menu" class="receipt"></div>
+
       <div class="tools">
         <button id="change" type="button">다른 고양이</button>
         <button id="sound" type="button">소리 끄기</button>
       </div>
     </section>
+
+    <footer class="note">적은 걱정은 고양이가 맛을 보는 데만 쓰이고, 어디에도 저장되지 않아요.</footer>
   </main>
   <script type="module" src="/src/main.js"></script>
 </body>

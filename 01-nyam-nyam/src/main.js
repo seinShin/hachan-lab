@@ -25,15 +25,37 @@ function say(text) { $('#bubble').textContent = text; }
 const eaten = () => state.eaten[cat] || 0;
 const isFull = () => eaten() >= CATS[cat].max;
 
+const FISH = '<svg class="fish" viewBox="0 0 22 14" aria-hidden="true"><path d="M1 7c3-5 9-6 13-3l6-3-1.5 6L20 13l-6-3C10 13 4 12 1 7z"/></svg>';
+const TASTE_COLOR = {
+  짠맛: '#7cc4e8', 쓴맛: '#8db36a', 싱거움: '#cfc5b4', 눅눅함: '#a9b8c2',
+  과자맛: '#f6cf5a', 매운맛: '#f2874a', 신맛: '#e8d24a',
+};
+
+// 오늘의 영수증: 걱정 내용 없이 맛과 개수만
+function renderReceipt() {
+  // innerHTML에 넣으므로 아는 맛 이름만 통과시킨다
+  const rows = Object.entries(state.menu).filter(([k]) => k in TASTE_COLOR);
+  const total = rows.reduce((n, [, v]) => n + v, 0);
+  const list = rows.length
+    ? rows.map(([k, v]) => `<li><i style="--dot:${TASTE_COLOR[k]}"></i>${k}<b>× ${Number(v) || 0}</b></li>`).join('')
+    : '<li class="empty">아직 주문이 없어요</li>';
+  $('#menu').innerHTML = `
+    <h2>오늘의 영수증</h2>
+    <p class="date">${today.replaceAll('-', '. ')}</p>
+    <ul>${list}</ul>
+    <p class="total"><span>먹은 걱정</span><span>${total}개</span></p>`;
+}
+
 function render() {
   const c = CATS[cat];
   $('#stage').innerHTML = catSvg(cat, Math.min(1, eaten() / c.max));
   $('#stage').classList.toggle('asleep', isFull());
-  $('#belly').textContent = `${c.name}의 배: ${'●'.repeat(eaten())}${'○'.repeat(c.max - eaten())}`;
+  const fish = Array.from({ length: c.max }, (_, i) => FISH.replace('class="fish"', `class="fish${i < eaten() ? ' full' : ''}"`)).join('');
+  $('#belly').innerHTML = `<span class="label">${c.name}의 배</span>${fish}`;
+  $('#belly').setAttribute('aria-label', `${c.name}의 배 ${c.max}칸 중 ${eaten()}칸`);
   $('#feed-btn').disabled = isFull();
   $('#worry').disabled = isFull();
-  const m = Object.entries(state.menu).map(([k, v]) => `${k} ${v}`).join(' · ');
-  $('#menu').textContent = m ? `오늘의 식단표: ${m}` : '';
+  renderReceipt();
 }
 
 function choose(id) {
@@ -227,7 +249,7 @@ async function feed(e) {
 $('#cat-list').innerHTML = Object.entries(CATS).map(([id, c]) => `
   <button class="pick" data-id="${id}" type="button">
     ${catSvg(id)}
-    <strong>${c.name}</strong><span>${c.tag}</span>
+    <span class="tag"><strong>${c.name}</strong><span>${c.tag}</span></span>
   </button>`).join('');
 $('#cat-list').addEventListener('click', (e) => {
   const b = e.target.closest('.pick');
