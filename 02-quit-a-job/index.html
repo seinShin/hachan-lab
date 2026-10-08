@@ -1,0 +1,344 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body>
+<title>퇴사 버튼 잡기</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Gowun+Batang:wght@400;700&family=Gowun+Dodum&display=swap">
+<style>
+/* 레이아웃: 위는 결재 서류 머리(시계 + 결재란), 아래는 사무실 바닥 한 칸. 한 화면에 끝나는 게임. */
+:root {
+  --paper: #eef1ec; --sheet: #ffffff; --floor: #e2e7e0;
+  --ink: #1c2430; --muted: #5f6a76; --line: #bcc4bf; --seal: #cf2f27; --on-seal: #ffffff;
+  --display: 'Black Han Sans', 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif;
+  --body: 'Gowun Dodum', 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif;
+  --doc: 'Gowun Batang', 'Batang', 'AppleMyungjo', serif;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --paper: #11151b; --sheet: #1b212a; --floor: #161b23;
+  --ink: #e8ecf0; --muted: #909ba8; --line: #343d49; --seal: #ff5d50; --on-seal: #1a0c0a; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --paper: #11151b; --sheet: #1b212a; --floor: #161b23;
+  --ink: #e8ecf0; --muted: #909ba8; --line: #343d49; --seal: #ff5d50; --on-seal: #1a0c0a; color-scheme: dark }
+
+*, *::before, *::after { box-sizing: border-box; }
+html, body { height: 100%; }
+[hidden] { display: none !important; }
+body { margin: 0; background: var(--paper); color: var(--ink); font-family: var(--body); font-size: 15px;
+  display: grid; grid-template-rows: auto 1fr; gap: 12px; padding-inline: 16px; padding-block: 14px 16px; }
+button, input, select { font: inherit; color: inherit; }
+:focus-visible { outline: 3px solid var(--seal); outline-offset: 2px; }
+
+/* 머리: 제목 · 시계 · 결재란 */
+.head { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 10px 20px; }
+.head h1 { font-family: var(--display); font-weight: 400; font-size: clamp(24px, 6vw, 34px); margin: 0; line-height: 1; letter-spacing: -0.5px; }
+.head p { margin: 6px 0 0; color: var(--muted); font-size: 13px; }
+.right { display: flex; align-items: stretch; gap: 14px; }
+.clock { display: flex; flex-direction: column; justify-content: center; text-align: right; }
+.clock b { font-family: var(--display); font-weight: 400; font-size: 30px; line-height: 1; font-variant-numeric: tabular-nums; }
+.clock span { font-size: 12px; color: var(--muted); margin-top: 4px; }
+.clock.late b { color: var(--seal); }
+.approval { display: grid; grid-template-columns: repeat(3, 50px); border: 1.5px solid var(--ink); background: var(--sheet); }
+.approval div { display: grid; grid-template-rows: auto 44px; border-left: 1.5px solid var(--ink); }
+.approval div:first-child { border-left: 0; }
+.approval i { font-style: normal; font-size: 12px; text-align: center; padding: 2px 0; border-bottom: 1.5px solid var(--ink); }
+.approval u { text-decoration: none; display: grid; place-items: center; }
+.stamp { width: 34px; height: 34px; border: 2.5px solid var(--seal); border-radius: 50%; color: var(--seal);
+  display: grid; place-items: center; font-family: var(--doc); font-weight: 700; font-size: 12px; transform: rotate(-12deg); animation: thud .25s ease-out; }
+.approval .now i { background: var(--ink); color: var(--sheet); }
+@keyframes thud { from { transform: rotate(-12deg) scale(2.2); opacity: 0; } }
+
+/* 사무실 바닥 */
+#arena { position: relative; overflow: hidden; min-height: 320px; border: 1.5px solid var(--ink); background-color: var(--floor);
+  background-image: linear-gradient(var(--line) 1px, transparent 1px), linear-gradient(90deg, var(--line) 1px, transparent 1px);
+  background-size: 56px 56px; touch-action: none; user-select: none; -webkit-user-select: none; cursor: crosshair; }
+.ent { position: absolute; left: 0; top: 0; will-change: transform; }
+.ent button { display: block; white-space: nowrap; cursor: pointer; border-radius: 6px; }
+.decoy button { font-size: 14px; padding: 9px 14px; background: var(--sheet); border: 1.5px solid var(--ink); }
+#quit button, .decoy.clone button { font-family: var(--display); font-size: 20px; padding: 12px 20px; background: var(--seal); color: var(--on-seal);
+  border: 2px solid var(--ink); box-shadow: 3px 3px 0 var(--ink); transform-origin: center; }
+#quit.tired button { filter: saturate(.4); }
+.say { position: absolute; left: 50%; bottom: calc(100% + 8px); transform: translateX(-50%); white-space: nowrap; font-size: 13px;
+  background: var(--sheet); border: 1.5px solid var(--ink); border-radius: 12px; padding: 3px 10px; pointer-events: none; }
+#toast { position: absolute; left: 50%; top: 12px; transform: translateX(-50%); z-index: 3; background: var(--ink); color: var(--sheet);
+  padding: 6px 14px; border-radius: 20px; font-size: 13px; white-space: nowrap; pointer-events: none; }
+.pop { animation: pop .3s ease-out; }
+@keyframes pop { from { opacity: 0; scale: .3; } }
+
+/* 덮개: 시작 · 결과 */
+#overlay { position: absolute; inset: 0; z-index: 5; display: grid; place-items: center; padding: 16px; overflow: auto;
+  background: color-mix(in srgb, var(--floor) 72%, transparent); cursor: default; touch-action: auto; }
+.card { width: min(100%, 380px); background: var(--sheet); border: 1.5px solid var(--ink); box-shadow: 5px 5px 0 var(--ink);
+  padding: 22px 22px 20px; display: flex; flex-direction: column; gap: 14px; user-select: text; -webkit-user-select: text; }
+.card h2 { font-family: var(--display); font-weight: 400; font-size: 24px; margin: 0; text-wrap: balance; }
+.card ol { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 6px; line-height: 1.5; }
+.card p { margin: 0; line-height: 1.6; }
+.go { align-self: stretch; font-family: var(--display); font-size: 18px; padding: 12px; background: var(--ink); color: var(--sheet);
+  border: 0; border-radius: 6px; cursor: pointer; }
+.go.ghost { background: transparent; color: var(--ink); border: 1.5px solid var(--ink); font-family: var(--body); font-size: 15px; padding: 10px; }
+.row { display: flex; gap: 8px; }
+.row > * { flex: 1; min-width: 0; }
+
+/* 사직서 */
+.letter { font-family: var(--doc); }
+.letter h2 { font-family: var(--doc); font-weight: 700; text-align: center; letter-spacing: 14px; text-indent: 14px; font-size: 26px; }
+.fields { display: grid; grid-template-columns: auto 1fr; gap: 8px 12px; align-items: center; }
+.fields label { letter-spacing: 6px; }
+.fields input, .fields select { width: 100%; min-width: 0; background: transparent; border: 0; border-bottom: 1.5px solid var(--ink);
+  padding: 4px 2px; border-radius: 0; font-family: var(--doc); }
+.letter .date { text-align: center; }
+.record { font-family: var(--body); font-size: 13px; color: var(--muted); border-top: 1px dashed var(--line); padding-top: 12px;
+  font-variant-numeric: tabular-nums; }
+.seals { display: flex; justify-content: flex-end; gap: 6px; }
+.fine { font-family: var(--body); font-size: 12px; color: var(--muted); text-align: center; }
+@media (prefers-reduced-motion: reduce) { .stamp, .pop { animation: none; } }
+</style>
+
+<header class="head">
+  <div>
+    <h1>퇴사 버튼 잡기</h1>
+    <p>18시 전에 결재 세 번. 버튼은 협조하지 않습니다.</p>
+  </div>
+  <div class="right">
+    <div class="clock" id="clock"><b id="time">09:00</b><span>퇴근 18:00</span></div>
+    <div class="approval" id="approval" aria-label="결재란">
+      <div><i>담당</i><u></u></div><div><i>팀장</i><u></u></div><div><i>부장</i><u></u></div>
+    </div>
+  </div>
+</header>
+
+<main id="arena">
+  <div id="toast" hidden></div>
+  <div class="ent" id="quit"><span class="say" hidden></span><button type="button" id="quit-btn">퇴사하기</button></div>
+  <div id="overlay"></div>
+</main>
+
+<script>
+const $ = (s) => document.querySelector(s);
+const arena = $('#arena'), quitEl = $('#quit'), quitBtn = $('#quit-btn'), sayEl = quitEl.querySelector('.say');
+const overlay = $('#overlay'), toastEl = $('#toast');
+
+const DAY = 60;           // 게임 한 판 = 60초 = 09:00~18:00
+// dash: 회피 대시 속도, dashCd: 대시 후 지쳐 있는 시간, juke: 초당 혼자 튀는 확률, tp: 순간이동 쿨다운, hits: 잡아야 하는 횟수
+const STAGES = [
+  { who: '담당', max: 480, flee: 170, wander: 120, scale: 1,    decoys: 0, clones: 0, tp: 3.0, dash: 1000, dashCd: 1.5,  juke: 0.25, hits: 1 },
+  { who: '팀장', max: 580, flee: 195, wander: 170, scale: 0.86, decoys: 2, clones: 1, tp: 2.2, dash: 1250, dashCd: 1.15, juke: 0.5,  hits: 1 },
+  { who: '부장', max: 660, flee: 215, wander: 210, scale: 0.74, decoys: 3, clones: 2, tp: 1.8, dash: 1450, dashCd: 0.95, juke: 0.8,  hits: 2 },
+];
+const TAUNTS = ['어딜', '내일 해', '월급날은 지나고', '인수인계는?', '아직 이르다', '연차부터 써', '퇴직금 계산해봤어?'];
+const DECOYS = ['야근하기', '회식 참석', '주말 출근', '보고서 수정'];
+const CLONES = ['회사하기', '퇴근하기'];   // 진짜처럼 생긴 가짜
+const REASONS = ['일신상의 사유', '버튼이 너무 빨라서', '월요일이 싫어서', '고양이가 보고 싶어서', '점심 메뉴 고르기 지쳐서'];
+const rand = (a, b) => a + Math.random() * (b - a);
+const pick = (a) => a[Math.floor(Math.random() * a.length)];
+
+let W = 0, H = 0;
+const S = { mode: 'idle', stage: 0, t: 0, miss: 0, overtime: 0, tpCd: 0, dashCd: 0, hp: 1,
+  ptr: { x: -999, y: -999, vx: 0, vy: 0, at: 0, on: false },
+  b: { x: 0, y: 0, vx: 0, vy: 0, w: 0, h: 0, heading: 0, turn: 0, dash: 0 }, decoys: [] };
+
+function measure() {
+  W = arena.clientWidth; H = arena.clientHeight;
+  S.b.w = quitBtn.offsetWidth * STAGES[Math.min(S.stage, 2)].scale; S.b.h = quitBtn.offsetHeight * STAGES[Math.min(S.stage, 2)].scale;
+}
+function place(e, awayFromPtr) {
+  for (let i = 0; i < 20; i++) {
+    e.x = rand(8, Math.max(9, W - e.w - 8)); e.y = rand(8, Math.max(9, H - e.h - 8));
+    if (!awayFromPtr || Math.hypot(e.x + e.w / 2 - S.ptr.x, e.y + e.h / 2 - S.ptr.y) > 220) break;
+  }
+}
+function clockText() {
+  const m = Math.min(540, Math.floor(S.t / DAY * 540)), h = 9 + Math.floor(m / 60);
+  return String(h).padStart(2, '0') + ':' + String(m % 60).padStart(2, '0');
+}
+let toastTimer, sayTimer;
+function toast(msg) { toastEl.textContent = msg; toastEl.hidden = false; clearTimeout(toastTimer); toastTimer = setTimeout(() => (toastEl.hidden = true), 1400); }
+function say(msg) { sayEl.textContent = msg; sayEl.hidden = false; clearTimeout(sayTimer); sayTimer = setTimeout(() => (sayEl.hidden = true), 900); }
+
+function renderApproval() {
+  [...$('#approval').children].forEach((box, i) => {
+    box.classList.toggle('now', S.mode === 'play' && i === S.stage);
+    const slot = box.querySelector('u'), done = S.mode !== 'idle' && i < S.stage;
+    if (done && !slot.firstChild) slot.innerHTML = '<span class="stamp">승인</span>';
+    if (!done) slot.innerHTML = '';
+  });
+}
+
+function setStage(n) {
+  S.stage = n; const st = STAGES[n];
+  quitBtn.style.scale = st.scale; measure(); S.hp = st.hits; S.dashCd = 0; blink(); S.tpCd = st.tp;
+  S.decoys.forEach((d) => d.el.remove()); S.decoys = [];
+  const fakes = DECOYS.slice(0, st.decoys).map((label) => ({ label, clone: false }))
+    .concat(CLONES.slice(0, st.clones).map((label) => ({ label, clone: true })));
+  for (const f of fakes) {
+    const el = document.createElement('div'); el.className = 'ent decoy pop' + (f.clone ? ' clone' : '');
+    el.innerHTML = '<button type="button" tabindex="-1">' + f.label + '</button>';
+    if (f.clone) el.firstChild.style.scale = st.scale;
+    arena.insertBefore(el, overlay);
+    const d = { el, clone: f.clone, x: 0, y: 0, w: el.offsetWidth, h: el.offsetHeight, heading: rand(0, 6.28), speed: rand(60, 105) };
+    place(d, true); S.decoys.push(d);
+  }
+  renderApproval();
+}
+
+// 순간이동: 포인터에서 먼 곳으로
+function blink() {
+  place(S.b, true); S.b.vx = S.b.vy = S.b.dash = 0;
+  quitEl.classList.remove('pop'); void quitEl.offsetWidth; quitEl.classList.add('pop');
+}
+// 회피 대시: (ux, uy) 방향에서 넓은 쪽으로 비스듬히 튐. 끝나면 dashCd 동안 지쳐서 못 씀
+function dash(ux, uy) {
+  const st = STAGES[Math.min(S.stage, 2)], b = S.b, tx = W / 2 - (b.x + b.w / 2), ty = H / 2 - (b.y + b.h / 2);
+  const a = Math.atan2(uy, ux) + (ux * ty - uy * tx > 0 ? 1 : -1) * rand(0.6, 1.2);
+  b.vx = Math.cos(a) * st.dash; b.vy = Math.sin(a) * st.dash; b.heading = a; b.dash = 0.18; S.dashCd = st.dashCd;
+}
+
+function start() {
+  Object.assign(S, { mode: 'play', t: 0, miss: 0, overtime: 0 });
+  overlay.hidden = true; $('#clock').classList.remove('late');
+  setStage(0); toast('담당 결재부터 받으세요');
+}
+
+function caught() {
+  if (S.mode !== 'play') return;
+  const who = STAGES[S.stage].who;
+  if (--S.hp > 0) { blink(); S.dashCd = 0; S.tpCd = STAGES[S.stage].tp; return toast(who + ' 반려. 보완해서 다시 잡아 오세요'); }
+  if (S.stage === 2) { S.stage = 3; S.mode = 'won'; renderApproval(); return finish(true); }
+  setStage(S.stage + 1); toast(who + ' 승인. 다음은 ' + STAGES[S.stage].who);
+}
+
+function step(dt) {
+  const st = STAGES[Math.min(S.stage, 2)], b = S.b, p = S.ptr;
+  S.dashCd -= dt; S.tpCd -= dt;
+  const fade = Math.max(0, 1 - dt * 6); p.vx *= fade; p.vy *= fade;
+  // 버튼: 평소엔 어슬렁, 포인터가 가까우면 반대쪽으로 도망
+  b.turn -= dt; if (b.turn <= 0) { b.heading += rand(-1.6, 1.6); b.turn = rand(0.4, 1.1); }
+  let dx = Math.cos(b.heading) * st.wander, dy = Math.sin(b.heading) * st.wander, near = false;
+  const cx = b.x + b.w / 2, cy = b.y + b.h / 2;
+  if (S.mode === 'play' && p.on) {
+    // 포인터의 지금 위치가 아니라 0.1초 뒤 위치를 보고 피함
+    const ax = cx - (p.x + p.vx * 0.1), ay = cy - (p.y + p.vy * 0.1), d = Math.hypot(ax, ay) || 1;
+    const closing = (p.vx * ax + p.vy * ay) / d;
+    if (d < st.flee) {
+      near = true;
+      const push = st.max * (1.15 - d / st.flee);
+      dx = ax / d * push; dy = ay / d * push;
+      // 벽에 붙으면 벽을 타고 옆으로 미끄러짐
+      const m = 46, edge = b.x < m || b.x + b.w > W - m || b.y < m || b.y + b.h > H - m;
+      if (b.x < m) dx += st.max * 0.5; if (b.x + b.w > W - m) dx -= st.max * 0.5;
+      if (b.y < m) dy += st.max * 0.5; if (b.y + b.h > H - m) dy -= st.max * 0.5;
+      // 벽에 몰리면 순간이동. 부장 단계는 어디서든
+      if (d < 85 && S.tpCd <= 0 && (edge || S.stage === 2)) { blink(); S.tpCd = st.tp; say('뿅'); }
+    }
+    // 포인터가 빠르게 덮쳐 오면 옆으로 대시
+    if (b.dash <= 0 && S.dashCd <= 0 && d < st.flee * 1.5 && closing > 450) { dash(ax / d, ay / d); say('휙'); }
+  }
+  // 아무도 안 쫓아와도 가끔 혼자 튐
+  if (S.mode === 'play' && !near && S.dashCd <= 0 && Math.random() < st.juke * dt) dash(Math.cos(b.heading), Math.sin(b.heading));
+  if (b.dash > 0) b.dash -= dt;
+  else {
+    const k = Math.min(1, dt * 9); b.vx += (dx - b.vx) * k; b.vy += (dy - b.vy) * k;
+    const sp = Math.hypot(b.vx, b.vy); if (sp > st.max) { b.vx *= st.max / sp; b.vy *= st.max / sp; }
+  }
+  b.x += b.vx * dt; b.y += b.vy * dt;
+  if (b.x < 4 || b.x > W - b.w - 4) { b.heading = Math.PI - b.heading; if (b.dash > 0) b.vx = -b.vx; b.x = Math.max(4, Math.min(W - b.w - 4, b.x)); }
+  if (b.y < 4 || b.y > H - b.h - 4) { b.heading = -b.heading; if (b.dash > 0) b.vy = -b.vy; b.y = Math.max(4, Math.min(H - b.h - 4, b.y)); }
+  quitEl.style.transform = 'translate(' + b.x + 'px,' + b.y + 'px)';
+  quitEl.classList.toggle('tired', S.mode === 'play' && S.dashCd > 0 && b.dash <= 0);
+
+  // 가짜 버튼: 포인터를 슬금슬금 따라옴. 진짜처럼 생긴 가짜는 진짜처럼 도망가는 척함
+  for (const d of S.decoys) {
+    const tx = p.x - (d.x + d.w / 2), ty = p.y - (d.y + d.h / 2);
+    let speed = d.speed;
+    if (d.clone) {
+      if (p.on && Math.hypot(tx, ty) < 150) { d.heading = Math.atan2(-ty, -tx); speed *= 3; }
+      else d.heading += rand(-3, 3) * dt;
+    } else if (p.on) d.heading = Math.atan2(ty, tx) + Math.sin(S.t * 3 + d.speed) * 0.5;
+    d.x = Math.max(4, Math.min(W - d.w - 4, d.x + Math.cos(d.heading) * speed * dt));
+    d.y = Math.max(4, Math.min(H - d.h - 4, d.y + Math.sin(d.heading) * speed * dt));
+    d.el.style.transform = 'translate(' + d.x + 'px,' + d.y + 'px)';
+  }
+
+  if (S.mode === 'play') {
+    S.t += dt; $('#time').textContent = clockText();
+    $('#clock').classList.toggle('late', S.t > DAY * 0.78);
+    if (S.t >= DAY) { S.mode = 'lost'; finish(false); }
+  }
+}
+
+function finish(won) {
+  S.decoys.forEach((d) => d.el.remove()); S.decoys = []; renderApproval();
+  const now = new Date(), date = now.getFullYear() + '년 ' + (now.getMonth() + 1) + '월 ' + now.getDate() + '일';
+  if (!won) {
+    overlay.innerHTML = '<div class="card"><h2>18:00. 퇴사 실패</h2>' +
+      '<p>결재를 ' + S.stage + '번 받았지만 퇴근 시간이 됐습니다. 내일도 출근입니다.</p>' +
+      '<p class="record">헛손질 ' + S.miss + '회 · 떠안은 야근 ' + S.overtime + '건</p>' +
+      '<button class="go" id="again" type="button">내일 다시 출근하기</button></div>';
+  } else {
+    const at = clockText();
+    overlay.innerHTML = '<div class="card letter"><h2>사직서</h2>' +
+      '<div class="fields"><label for="f-team">소속</label><input id="f-team" value="하찮은 연구소" maxlength="20">' +
+      '<label for="f-name">성명</label><input id="f-name" placeholder="이름을 적으세요" maxlength="12">' +
+      '<label for="f-why">사유</label><select id="f-why">' + REASONS.map((r) => '<option>' + r + '</option>').join('') + '</select></div>' +
+      '<p>상기 본인은 위 사유로 ' + date + '부로 사직하고자 하오니 허락하여 주시기 바랍니다.</p>' +
+      '<p class="date">' + date + '</p>' +
+      '<div class="seals"><span class="stamp">담당</span><span class="stamp">팀장</span><span class="stamp">부장</span></div>' +
+      '<p class="record">퇴사 시각 ' + at + ' · 헛손질 ' + S.miss + '회 · 떠안은 야근 ' + S.overtime + '건</p>' +
+      '<div class="row"><button class="go ghost" id="copy" type="button">사직서 복사</button><button class="go" id="again" type="button">재입사하기</button></div>' +
+      '<p class="fine">이 사직서는 법적 효력이 없습니다. 진짜는 인사팀에 내세요.</p></div>';
+    $('#copy').addEventListener('click', (e) => {
+      const text = '사 직 서\n\n소속: ' + $('#f-team').value + '\n성명: ' + ($('#f-name').value || '(미기재)') + '\n사유: ' + $('#f-why').value +
+        '\n\n상기 본인은 위 사유로 ' + date + '부로 사직하고자 하오니 허락하여 주시기 바랍니다.\n\n' + date +
+        '\n결재: 담당 · 팀장 · 부장 승인\n\n(퇴사 시각 ' + at + ', 헛손질 ' + S.miss + '회, 떠안은 야근 ' + S.overtime + '건)';
+      const done = () => (e.target.textContent = '복사했습니다');
+      const fallback = () => { const ta = document.createElement('textarea'); ta.value = text; ta.id = 'copy-fallback'; ta.rows = 6; ta.style.width = '100%';
+        e.target.closest('.card').append(ta); ta.select(); e.target.textContent = '아래 글을 복사하세요'; };
+      try { navigator.clipboard.writeText(text).then(done, fallback); } catch { fallback(); }
+    });
+  }
+  overlay.hidden = false; overlay.scrollTop = 0;
+  $('#again').addEventListener('click', start);
+}
+
+function intro() {
+  overlay.innerHTML = '<div class="card"><h2>오늘은 꼭 퇴사한다</h2><ol>' +
+    '<li>도망 다니는 <b>퇴사하기</b> 버튼을 세 번 잡으면 사직서가 나옵니다.</li>' +
+    '<li>잡을 때마다 담당, 팀장, 부장 결재가 찍히고 버튼은 더 작고 빨라집니다. 부장은 한 번 반려합니다.</li>' +
+    '<li>버튼은 덮치면 옆으로 튀고, 벽에 몰리면 순간이동합니다. 튄 직후 <b>색이 빠졌을 때</b>가 기회입니다.</li>' +
+    '<li>따라오는 <b>야근하기</b>나 진짜인 척하는 <b>회사하기</b>를 누르면 30분이 날아갑니다.</li>' +
+    '<li>18:00이 되면 실패. 하루는 60초입니다.</li></ol>' +
+    '<button class="go" id="again" type="button">출근하기</button></div>';
+  $('#again').addEventListener('click', start);
+}
+
+// 입력
+function track(e) {
+  const r = arena.getBoundingClientRect(), p = S.ptr, x = e.clientX - r.left, y = e.clientY - r.top, dt = (e.timeStamp - p.at) / 1000;
+  if (!p.on || dt >= 0.1) p.vx = p.vy = 0;   // 띄엄띄엄 찍는 터치는 속도로 치지 않음
+  else if (dt > 0) { p.vx += ((x - p.x) / dt - p.vx) * 0.5; p.vy += ((y - p.y) / dt - p.vy) * 0.5; }
+  p.x = x; p.y = y; p.at = e.timeStamp; p.on = true;
+}
+arena.addEventListener('pointermove', track);
+arena.addEventListener('pointerleave', (e) => { if (e.pointerType === 'mouse') S.ptr.on = false; });
+arena.addEventListener('pointerdown', (e) => {
+  if (S.mode !== 'play' || overlay.contains(e.target)) return;
+  track(e);
+  if (quitBtn.contains(e.target)) return caught();
+  const d = S.decoys.find((x) => x.el.contains(e.target));
+  if (d) { S.t += DAY / 18; S.overtime++; place(d, true); toast(d.el.textContent + ' 확정. 30분이 지나갔습니다'); return; }
+  S.miss++; say(pick(TAUNTS));
+  // 근처를 헛짚으면 놀라서 튐. 지쳐 있던 것도 풀리니 마구 누르면 손해
+  const ax = S.b.x + S.b.w / 2 - S.ptr.x, ay = S.b.y + S.b.h / 2 - S.ptr.y, dist = Math.hypot(ax, ay) || 1;
+  if (dist < 140) dash(ax / dist, ay / dist);
+});
+quitBtn.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); if (S.mode === 'play') say('키보드는 반칙'); } });
+window.addEventListener('resize', measure);
+
+let last = 0;
+function loop(ts) { const dt = Math.min(0.05, (ts - last) / 1000 || 0); last = ts; step(dt); requestAnimationFrame(loop); }
+measure(); place(S.b, false); renderApproval(); intro(); requestAnimationFrame(loop);
+</script>
+</body>
+</html>
