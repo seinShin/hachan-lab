@@ -1,0 +1,223 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>삐진 탭</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gowun+Dodum&family=Jua&display=swap">
+<style>
+/* 레이아웃: 가운데 한 단. 위에서부터 말풍선 → 탭 캐릭터 → 달래기 → 외로움 기록. */
+:root {
+  --paper: #fbf3ea; --sheet: #ffffff; --tab: #ffd9c7; --blush: #ff9a8b;
+  --ink: #2b2230; --muted: #7b6f7d; --line: #e3d5cb; --accent: #e8503f; --on-accent: #ffffff;
+  --display: 'Jua', 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif;
+  --body: 'Gowun Dodum', 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --paper: #19151c; --sheet: #241f28; --tab: #5a4350; --blush: #d9667a;
+  --ink: #f1e9ee; --muted: #a497a5; --line: #3a323f; --accent: #ff7566; --on-accent: #22100e; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --paper: #19151c; --sheet: #241f28; --tab: #5a4350; --blush: #d9667a;
+  --ink: #f1e9ee; --muted: #a497a5; --line: #3a323f; --accent: #ff7566; --on-accent: #22100e; color-scheme: dark }
+
+*, *::before, *::after { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body { margin: 0; min-height: 100vh; background: var(--paper); color: var(--ink); font-family: var(--body); font-size: 15px;
+  display: flex; flex-direction: column; align-items: center; gap: 18px; padding: 28px 16px 40px; }
+button { font: inherit; color: inherit; }
+:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+.wrap { width: min(100%, 420px); display: flex; flex-direction: column; gap: 18px; }
+
+.head { text-align: center; }
+.head h1 { font-family: var(--display); font-weight: 400; font-size: clamp(30px, 9vw, 40px); margin: 0; line-height: 1; }
+.head p { margin: 8px 0 0; color: var(--muted); font-size: 13px; }
+
+/* 말풍선 + 탭 캐릭터 */
+.stage { display: flex; flex-direction: column; align-items: center; }
+#say { position: relative; max-width: 100%; min-height: 48px; display: grid; place-items: center; text-align: center; text-wrap: balance;
+  background: var(--sheet); border: 2px solid var(--ink); border-radius: 18px; padding: 10px 18px; font-family: var(--display); font-size: 19px; line-height: 1.35; }
+#say::after { content: ''; position: absolute; left: 50%; top: 100%; width: 14px; height: 14px; background: var(--sheet);
+  border-right: 2px solid var(--ink); border-bottom: 2px solid var(--ink); transform: translate(-50%, -6px) rotate(45deg); }
+#say.pop { animation: pop .3s ease-out; }
+@keyframes pop { from { opacity: 0; scale: .8; } }
+#tab { width: min(100%, 250px); margin-top: 14px; overflow: visible; }
+#tab .body { fill: var(--tab); stroke: var(--ink); stroke-width: 4; stroke-linejoin: round; }
+#tab .ink { fill: none; stroke: var(--ink); stroke-width: 5; stroke-linecap: round; stroke-linejoin: round; }
+#tab .dot { fill: var(--ink); }
+#tab .cheek { fill: var(--blush); opacity: .7; transition: r .3s; }
+#tab .close { opacity: .45; stroke-width: 3; }
+#face { transition: transform .5s cubic-bezier(.3, 1.4, .5, 1); }
+#tab[data-mood="happy"] { animation: bob 2.4s ease-in-out infinite; }
+#tab[data-mood="sulky"] .cheek { r: 15px; }
+#tab[data-mood="done"] #face { transform: translateX(26px); }   /* 고개 돌림 */
+#tab.shake { animation: shake .35s; }
+@keyframes bob { 50% { translate: 0 -5px; } }
+@keyframes shake { 25% { rotate: -4deg; } 75% { rotate: 4deg; } }
+.floor { width: min(100%, 290px); height: 0; border-top: 2px solid var(--ink); margin-top: -3px; }
+#with { margin: 10px 0 0; font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
+
+/* 달래기 */
+.soothe { display: flex; flex-direction: column; gap: 10px; }
+.gauge { display: flex; align-items: center; gap: 10px; font-size: 13px; }
+.gauge i { flex: 1; height: 12px; border: 2px solid var(--ink); border-radius: 8px; background: var(--sheet); overflow: hidden; }
+.gauge i b { display: block; height: 100%; width: 0; background: var(--accent); transition: width .3s; }
+.gauge span { min-width: 34px; text-align: right; font-variant-numeric: tabular-nums; }
+#sorry { font-family: var(--display); font-size: 20px; padding: 12px; background: var(--accent); color: var(--on-accent);
+  border: 2px solid var(--ink); border-radius: 12px; box-shadow: 3px 3px 0 var(--ink); cursor: pointer; }
+#sorry:active { translate: 2px 2px; box-shadow: 1px 1px 0 var(--ink); }
+
+/* 외로움 기록 */
+.record { background: var(--sheet); border: 2px solid var(--ink); border-radius: 14px; padding: 16px; display: flex; flex-direction: column; gap: 14px; }
+.record h2 { font-family: var(--display); font-weight: 400; font-size: 18px; margin: 0; display: flex; justify-content: space-between; align-items: baseline; }
+#reset { background: none; border: 0; padding: 0; font-family: var(--body); font-size: 12px; color: var(--muted); text-decoration: underline; cursor: pointer; }
+.stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 0; }
+.stats div { border: 1.5px solid var(--line); border-radius: 10px; padding: 8px 6px; text-align: center; min-width: 0; }
+.stats dt { font-size: 12px; color: var(--muted); }
+.stats dd { margin: 4px 0 0; font-family: var(--display); font-size: 17px; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+#log { list-style: none; margin: 0; padding: 12px 0 0; border-top: 1px dashed var(--line); display: flex; flex-direction: column; gap: 6px; font-size: 13px; }
+#log li { display: flex; justify-content: space-between; gap: 12px; font-variant-numeric: tabular-nums; }
+#log li span { color: var(--muted); }
+#log .empty { color: var(--muted); justify-content: center; }
+@media (prefers-reduced-motion: reduce) { #tab, #tab.shake, #say.pop { animation: none; } #face { transition: none; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="head">
+    <h1>삐진 탭</h1>
+    <p>다른 탭에 다녀와 보세요. 가 있는 동안 이 탭의 제목을 지켜보면서.</p>
+  </header>
+
+  <section class="stage">
+    <div id="say" role="status" aria-live="polite"></div>
+    <svg id="tab" viewBox="0 0 240 180" data-mood="happy" aria-hidden="true">
+      <path class="body" d="M8 172 C28 172 30 150 34 60 C36 28 48 18 72 18 H168 C192 18 204 28 206 60 C210 150 212 172 232 172 Z"/>
+      <path class="ink close" d="M172 40 l12 12 m0 -12 l-12 12"/>
+      <g id="face"></g>
+    </svg>
+    <div class="floor"></div>
+    <p id="with"></p>
+  </section>
+
+  <section class="soothe">
+    <div class="gauge"><span>삐짐</span><i><b id="bar"></b></i><span id="need">0</span></div>
+    <button type="button" id="sorry">미안해</button>
+  </section>
+
+  <section class="record">
+    <h2>외로움 기록 <button type="button" id="reset">없던 일로 하기</button></h2>
+    <dl class="stats">
+      <div><dt>버린 횟수</dt><dd id="s-count"></dd></div>
+      <div><dt>버려진 시간</dt><dd id="s-total"></dd></div>
+      <div><dt>최장 기록</dt><dd id="s-longest"></dd></div>
+    </dl>
+    <ol id="log"></ol>
+  </section>
+</div>
+
+<script>
+const $ = (s) => document.querySelector(s);
+const tabEl = $('#tab'), faceEl = $('#face'), sayEl = $('#say');
+
+const NAME = '삐진 탭', KEY = 'sulky-tab', MAX_NEED = 10, LOG_SIZE = 6;
+// 자리를 비운 동안의 탭 제목: [몇 초부터, 제목, 파비콘]
+const AWAY = [[0, '어디 갔어?', '🥺'], [5, '돌아와…', '😢'], [12, '돌아오라고', '😠'], [25, '됐어 이제', '😤'], [90, '…', '😑']];
+const ICONS = { happy: '🙂', sad: '🥺', sulky: '😠', done: '😑' };
+const FACES = {
+  happy: '<circle class="dot" cx="92" cy="92" r="7"/><circle class="dot" cx="148" cy="92" r="7"/><path class="ink" d="M104 116 Q120 132 136 116"/>',
+  sad:   '<path class="ink" d="M80 80 L100 74 M160 80 L140 74"/><circle class="dot" cx="92" cy="96" r="7"/><circle class="dot" cx="148" cy="96" r="7"/><path class="ink" d="M106 128 Q120 116 134 128"/>',
+  sulky: '<path class="ink" d="M80 74 L102 84 M160 74 L138 84"/><circle class="dot" cx="92" cy="98" r="6"/><circle class="dot" cx="148" cy="98" r="6"/><path class="ink" d="M110 126 Q120 119 130 126"/>',
+  done:  '<path class="ink" d="M82 94 H102 M138 94 H158 M112 124 H128"/>',
+};
+const CHEEKS = '<circle class="cheek" cx="70" cy="114" r="10"/><circle class="cheek" cx="170" cy="114" r="10"/>';
+const SORRY = [
+  [0, ['…이번만이야.', '알았어. 대신 여기 있어.', '…나도 보고 싶었어.']],
+  [2, ['…진짜 미안해?', '한 번만 더 해봐.', '다음엔 안 그럴 거야?']],
+  [5, ['흥.', '말로만?', '아까는 잘만 가더니.']],
+  [MAX_NEED, ['됐어.', '…', '안 들려.']],
+];
+const NO_REASON = ['왜 사과해? 뭐 잘못했어?', '갑자기? 수상한데.', '…어디 가려고 그러지.'];
+const pick = (a) => a[Math.floor(Math.random() * a.length)];
+
+// need: 남은 사과 횟수, leftAt: 자리를 비운 시각(있는 동안은 0)
+const S = { count: 0, total: 0, longest: 0, log: [], need: 0, leftAt: 0 };
+let backAt = Date.now(), awayTimer;
+try { Object.assign(S, JSON.parse(localStorage.getItem(KEY)) || {}); } catch {}
+function save() { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch {} }
+
+function fmt(ms) {
+  const s = Math.floor(ms / 1000), h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60);
+  if (h) return h + '시간' + (m ? ' ' + m + '분' : '');
+  if (m) return m + '분' + (s % 60 ? ' ' + s % 60 + '초' : '');
+  return s + '초';
+}
+const josa = (t) => t + (t.endsWith('초') ? '나' : '이나');   // 37초나 / 2분이나
+const mood = () => (S.need === 0 ? 'happy' : S.need <= 2 ? 'sad' : S.need <= 5 ? 'sulky' : 'done');
+
+function setIcon(emoji) {
+  let link = $('link[rel="icon"]');
+  if (!link) { link = document.createElement('link'); link.rel = 'icon'; document.head.append(link); }
+  link.href = 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90">' + emoji + '</text></svg>');
+}
+function say(msg) { sayEl.textContent = msg; sayEl.classList.remove('pop'); void sayEl.offsetWidth; sayEl.classList.add('pop'); }
+
+function render() {
+  const m = mood();
+  tabEl.dataset.mood = m; faceEl.innerHTML = CHEEKS + FACES[m];
+  $('#bar').style.width = S.need / MAX_NEED * 100 + '%'; $('#need').textContent = S.need;
+  $('#s-count').textContent = S.count + '번'; $('#s-total').textContent = fmt(S.total); $('#s-longest').textContent = fmt(S.longest);
+  $('#log').innerHTML = S.log.length
+    ? S.log.map((r) => { const d = new Date(r.at); return '<li><span>' + String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0') + '</span>' + josa(fmt(r.ms)) + ' 버려짐</li>'; }).join('')
+    : '<li class="empty">아직 버린 적 없음. 지금까지는.</li>';
+  if (!document.hidden) { document.title = S.need ? NAME + ' (삐짐)' : NAME; setIcon(ICONS[m]); }
+}
+
+// 자리를 비운 동안: 시간이 갈수록 제목이 바뀜
+function awayTick() {
+  const sec = (Date.now() - S.leftAt) / 1000, cur = AWAY.filter((a) => sec >= a[0]).pop();
+  document.title = cur[1]; setIcon(cur[2]);
+}
+function leave() {
+  if (S.leftAt) return;
+  S.leftAt = Date.now(); save();
+  awayTick(); clearInterval(awayTimer); awayTimer = setInterval(awayTick, 1000);
+}
+// closed: 탭을 아예 닫았다가 다시 연 경우
+function comeBack(closed) {
+  clearInterval(awayTimer);
+  if (!S.leftAt) return;
+  const ms = Date.now() - S.leftAt, sec = ms / 1000;
+  S.leftAt = 0; backAt = Date.now();
+  if (sec < 1) { save(); return render(); }   // 깜빡인 정도는 봐줌
+  S.count++; S.total += ms; S.longest = Math.max(S.longest, ms);
+  S.log.unshift({ at: Date.now(), ms }); S.log.length = Math.min(S.log.length, LOG_SIZE);
+  S.need = Math.min(MAX_NEED, S.need + (sec < 3 ? 0 : sec < 10 ? 1 : sec < 60 ? 3 : sec < 300 ? 5 : 8));
+  save(); render();
+  const m = mood(), gone = josa(fmt(ms)) + ' 날 버렸어.';
+  say(m === 'happy' ? '어? 벌써 왔어? …딱히 기다린 건 아니야.'
+    : (closed ? '아예 탭을 닫았더라? ' : '') + gone + (m === 'sad' ? ' …좀 서운해.' : m === 'sulky' ? ' 나 삐졌어.' : ' 됐어. 말 걸지 마.'));
+}
+
+$('#sorry').addEventListener('click', () => {
+  if (!S.need) return say(pick(NO_REASON));
+  S.need--; save(); render();
+  say(pick(SORRY.find((s) => S.need <= s[0])[1]));
+  if (S.need) { tabEl.classList.remove('shake'); void tabEl.getBoundingClientRect(); tabEl.classList.add('shake'); }
+});
+$('#reset').addEventListener('click', () => {
+  Object.assign(S, { count: 0, total: 0, longest: 0, log: [], need: 0 }); save(); render();
+  say('…없던 일로 해 줄게. 이번만.');
+});
+document.addEventListener('visibilitychange', () => (document.hidden ? leave() : comeBack(false)));
+window.addEventListener('pagehide', leave);
+
+setInterval(() => { if (!document.hidden) $('#with').textContent = '같이 있은 지 ' + fmt(Date.now() - backAt); }, 1000);
+$('#with').textContent = '같이 있은 지 0초';
+
+render();
+if (S.leftAt) comeBack(true);
+else say(S.need ? '…나 아직 안 풀렸어.' : S.count ? '왔어? 오늘은 어디 가지 마.' : '안녕! 여기 계속 있을 거지?');
+if (document.hidden) leave();   // 백그라운드 탭으로 열린 경우
+</script>
+</body>
+</html>
