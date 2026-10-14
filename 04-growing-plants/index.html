@@ -1,0 +1,636 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>소리 먹는 식물</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gowun+Dodum&family=Jua&display=swap">
+<style>
+/* 레이아웃: 가운데 한 단. 위에서부터 제목 → 화분 캔버스 → 음량/음높이/바람 게이지 → 마이크 버튼/감도. */
+:root {
+  --paper: #f4f6ea; --sheet: #ffffff; --ink: #24301f; --muted: #6f7a68; --line: #d9dfcc;
+  --stem: #4f9a3c; --leaf: #7cc35a; --leaf-dark: #4f9a3c; --petal: #ff8fa3; --core: #ffd25e;
+  --petal-high: #ffd23f; --core-high: #ff8a3d;   /* 높은 소리일 때 꽃 색 */
+  --fluff: #ffffff;                              /* 민들레 홀씨 */
+  --wind: #7fb8e0;
+  --pot: #d9825b; --soil: #6b4a35; --accent: #4f9a3c; --on-accent: #ffffff;
+  --display: 'Jua', 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif;
+  --body: 'Gowun Dodum', 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --paper: #151a14; --sheet: #1f261d; --ink: #e8efe2; --muted: #9aa692; --line: #344030;
+  --stem: #6fbf55; --leaf: #8fd46c; --leaf-dark: #5fae47; --fluff: #f4f4ee;
+  --pot: #c4704b; --soil: #4a3426; --accent: #7fd35f; --on-accent: #10200b; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --paper: #151a14; --sheet: #1f261d; --ink: #e8efe2; --muted: #9aa692; --line: #344030;
+  --stem: #6fbf55; --leaf: #8fd46c; --leaf-dark: #5fae47; --fluff: #f4f4ee;
+  --pot: #c4704b; --soil: #4a3426; --accent: #7fd35f; --on-accent: #10200b; color-scheme: dark }
+
+*, *::before, *::after { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body { margin: 0; min-height: 100vh; background: var(--paper); color: var(--ink); font-family: var(--body); font-size: 15px;
+  display: flex; flex-direction: column; align-items: center; padding: 28px 16px 40px; }
+button, input { font: inherit; color: inherit; }
+:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+.wrap { width: min(100%, 420px); display: flex; flex-direction: column; gap: 18px; }
+
+.head { text-align: center; }
+.head h1 { font-family: var(--display); font-weight: 400; font-size: clamp(30px, 9vw, 40px); margin: 0; line-height: 1; }
+.head p { margin: 8px 0 0; color: var(--muted); font-size: 13px; text-wrap: balance; }
+
+/* 화분 무대 */
+.stage { position: relative; background: var(--sheet); border: 2px solid var(--ink); border-radius: 18px; overflow: hidden; }
+#plant { display: block; width: 100%; aspect-ratio: 3 / 4; }
+#height { position: absolute; top: 12px; right: 14px; font-family: var(--display); font-size: 20px; font-variant-numeric: tabular-nums; }
+#mood { position: absolute; top: 14px; left: 14px; font-size: 13px; color: var(--muted); }
+#mood.flash { color: var(--ink); font-family: var(--display); font-size: 16px; animation: pop .3s ease-out; }
+@keyframes pop { from { opacity: 0; scale: .8; } }
+
+/* 음량 · 음높이 · 바람 게이지 */
+.gauges { display: flex; flex-direction: column; gap: 8px; }
+.gauge { display: flex; align-items: center; gap: 10px; font-size: 13px; }
+.gauge > span:first-child { min-width: 38px; }
+.gauge i { flex: 1; height: 12px; border: 2px solid var(--ink); border-radius: 8px; background: var(--sheet); overflow: hidden; position: relative; }
+.gauge i b { display: block; height: 100%; width: 0; background: var(--accent); }
+.gauge i.windbar b { background: var(--wind); }
+/* 음높이는 막대 대신 위치 표시: 왼쪽 낮음 ↔ 오른쪽 높음 */
+.gauge i.tone { background: linear-gradient(90deg, var(--leaf), var(--petal), var(--petal-high)); }
+.gauge i.tone b { position: absolute; top: -2px; width: 4px; height: calc(100% + 4px); margin-left: -2px; background: var(--ink); border-radius: 2px; }
+.gauge > span:last-child { min-width: 34px; text-align: right; font-variant-numeric: tabular-nums; }
+
+/* 조작 */
+#mic { font-family: var(--display); font-size: 20px; padding: 12px; background: var(--accent); color: var(--on-accent);
+  border: 2px solid var(--ink); border-radius: 12px; box-shadow: 3px 3px 0 var(--ink); cursor: pointer; }
+#mic:active { translate: 2px 2px; box-shadow: 1px 1px 0 var(--ink); }
+#mic[aria-pressed="true"] { background: var(--sheet); color: var(--ink); }
+.sense { display: flex; align-items: center; gap: 10px; font-size: 13px; }
+.sense input { flex: 1; accent-color: var(--accent); }
+#status { margin: 0; min-height: 1.4em; text-align: center; font-size: 13px; color: var(--muted); }
+.tips { margin: 0; padding: 12px 14px; border: 1.5px dashed var(--line); border-radius: 12px; font-size: 13px; color: var(--muted);
+  display: flex; flex-direction: column; gap: 4px; list-style: none; }
+</style>
+</head>
+<body>
+<main class="wrap">
+  <header class="head">
+    <h1>소리 먹는 식물</h1>
+    <p>소리를 내면 자라고, 조용해지면 다시 작아져요.</p>
+  </header>
+
+  <div class="stage">
+    <canvas id="plant" aria-label="음량에 따라 자라는 식물"></canvas>
+    <span id="mood">쿨쿨…</span>
+    <span id="height">0cm</span>
+  </div>
+
+  <div class="gauges" aria-hidden="true">
+    <div class="gauge"><span>음량</span><i><b id="level"></b></i><span id="levelNum">0</span></div>
+    <div class="gauge"><span>음높이</span><i class="tone"><b id="tone"></b></i><span id="toneTxt">–</span></div>
+    <div class="gauge"><span>바람</span><i class="windbar"><b id="wind"></b></i><span id="windNum">0</span></div>
+  </div>
+
+  <button id="mic" type="button" aria-pressed="false">마이크 켜기</button>
+  <label class="sense">감도 <input id="sense" type="range" min="0" max="100" value="50"></label>
+  <p id="status" role="status"></p>
+
+  <ul class="tips">
+    <li>🎵 높은 소리(휘파람) → 꽃이 노랗게</li>
+    <li>🎶 낮은 소리(허밍) → 잎이 넓적하게</li>
+    <li>👏 박수 → 새 잎이 뿅!</li>
+    <li>🌬️ 마이크에 후~ → 식물이 휘청, 꽃이 피었을 때 불면 홀씨가 날아가요</li>
+  </ul>
+</main>
+
+<script>
+const canvas = document.getElementById('plant');
+const ctx = canvas.getContext('2d');
+const $ = id => document.getElementById(id);
+
+// ── 조절용 숫자들 ──
+const MAX_CM = 60;          // 다 자랐을 때 표시되는 키
+const GROW_RATE = 1.2;      // 커질 때 따라가는 속도 (초당)
+const SHRINK_RATE = 0.35;   // 작아질 때 따라가는 속도 (초당) — 천천히 시들게
+const PITCH_LOW = 300;      // 이 주파수(Hz) 이하면 음높이 0
+const PITCH_HIGH = 3000;    // 이 주파수(Hz) 이상이면 음높이 1
+const CLAP_JUMP = 0.3;      // 한 프레임 만에 음량이 이만큼 뛰면 박수로 봄
+const CLAP_MIN = 0.55;      // 그리고 음량이 이 이상이어야 함
+const MAX_BONUS = 10;       // 박수로 생기는 잎 최대 개수
+const WIND_MIN = 0.3;       // 바람으로 보려면 음량이 이 이상
+const WIND_FLAT = 0.25;     // 스펙트럼 평탄도가 이 이상이면 "음 없는 잡음"
+const WIND_LOW = 0.5;       // 500Hz 아래 에너지 비율이 이 이상이면 "저음 잡음"
+const WIND_HOLD = 0.3;      // 이 시간(초) 이상 이어져야 바람으로 인정
+const WIND_RELEASE = 1.0;   // 꽃이 핀 뒤 이 시간(초) 동안 불면 홀씨가 날아감
+const RESET_RATE = 2.5;     // 홀씨 날린 뒤 새싹으로 돌아가는 속도
+
+let analyser, timeBuf, freqBuf, stream, audioCtx;
+let level = 0;     // 지금 음량 0..1 (부드럽게)
+let prevRaw = 0;   // 직전 프레임 음량 (박수 감지용)
+let growth = 0;    // 식물 크기 0..1
+let tone = 0.5;    // 음높이 0(낮음)..1(높음) — 소리 날 때만 움직이고, 조용하면 그대로 유지
+let windHold = 0;  // 바람이 이어진 시간(초)
+let windForce = 0; // 바람 세기 0..1 (부드럽게)
+let bend = 0, bendVel = 0;  // 줄기가 휜 정도와 그 속도 (스프링)
+let flutter = 0;   // 잎 파닥임 위상 — 바람 세면 빨리 돎
+let blowAt = 0;    // 꽃이 핀 상태에서 바람 분 시간(초)
+let resetting = false;  // 홀씨 날린 뒤 새싹으로 돌아가는 중
+let bonusLeaves = [];  // 박수로 돋은 잎 { s: 줄기 위치 0..1, side: ±1, born: 시각 }
+let particles = [];    // 축하 꽃가루 { x, y, vx, vy, life, max, color, size, star }
+let seeds = [];        // 민들레 홀씨 { x, y, vx, vy, rot, phase, life, max }
+let celebrated = false;
+let lastClap = 0;
+let flowerPos = null;  // draw()가 매 프레임 꽃 위치를 기록
+let flashUntil = 0;
+let colors = {};
+
+function readColors() {
+  const s = getComputedStyle(document.documentElement);
+  for (const k of ['ink', 'stem', 'leaf', 'leaf-dark', 'petal', 'core', 'petal-high', 'core-high', 'fluff', 'pot', 'soil'])
+    colors[k] = s.getPropertyValue('--' + k).trim();
+}
+readColors();
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change', readColors);
+
+function resize() {
+  const dpr = window.devicePixelRatio || 1;
+  const r = canvas.getBoundingClientRect();
+  canvas.width = Math.round(r.width * dpr);
+  canvas.height = Math.round(r.height * dpr);
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+}
+new ResizeObserver(resize).observe(canvas);
+
+// ── 마이크 ──
+async function startMic() {
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({
+      audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false }
+    });
+  } catch (e) {
+    $('status').textContent = e.name === 'NotAllowedError'
+      ? '마이크 권한이 막혀 있어요. 주소창 옆 자물쇠에서 허용해 주세요.'
+      : '마이크를 찾을 수 없어요.';
+    return;
+  }
+  audioCtx = new AudioContext();
+  analyser = audioCtx.createAnalyser();
+  analyser.fftSize = 2048;
+  timeBuf = new Float32Array(analyser.fftSize);
+  freqBuf = new Float32Array(analyser.frequencyBinCount);
+  audioCtx.createMediaStreamSource(stream).connect(analyser);
+  $('mic').textContent = '마이크 끄기';
+  $('mic').setAttribute('aria-pressed', 'true');
+  $('status').textContent = '말하거나, 노래하거나, 박수를 치거나, 후~ 불어 보세요!';
+}
+
+function stopMic() {
+  stream?.getTracks().forEach(t => t.stop());
+  audioCtx?.close();
+  analyser = stream = audioCtx = null;
+  $('mic').textContent = '마이크 켜기';
+  $('mic').setAttribute('aria-pressed', 'false');
+  $('status').textContent = '마이크를 껐어요. 식물이 천천히 작아져요.';
+}
+
+$('mic').addEventListener('click', () => analyser ? stopMic() : startMic());
+
+// 음량: 파형의 RMS(평균 세기)를 dB로 바꿔 0..1로
+function readLevel() {
+  if (!analyser) return 0;
+  analyser.getFloatTimeDomainData(timeBuf);
+  let sum = 0;
+  for (const v of timeBuf) sum += v * v;
+  const rms = Math.sqrt(sum / timeBuf.length);
+  const gain = 2 ** (($('sense').value - 50) / 20);  // 감도: 0.25x ~ 8x
+  const db = 20 * Math.log10(rms * gain + 1e-9);
+  return clamp01((db + 55) / 45);  // -55dB → 0, -10dB → 1
+}
+
+// 스펙트럼 한 번 읽어서 세 가지를 같이 계산
+//  pitch    : 무게중심 주파수 → 0..1 (높은 소리일수록 큼)
+//  flatness : 평탄도 0..1 (목소리·휘파람처럼 음이 있으면 0 쪽, 바람·잡음이면 1 쪽)
+//  low      : 500Hz 아래 에너지 비율 (바람이 마이크를 때리면 "부우" 저음이 큼)
+function readSpectrum() {
+  analyser.getFloatFrequencyData(freqBuf);         // 각 주파수 칸의 세기(dB)
+  const hzPerBin = audioCtx.sampleRate / analyser.fftSize;
+  let weighted = 0, total = 0, lowPow = 0, logSum = 0, n = 0;
+  for (let i = Math.floor(80 / hzPerBin); i < freqBuf.length && i * hzPerBin < 8000; i++) {
+    const db = Math.max(freqBuf[i], -160);
+    const hz = i * hzPerBin;
+    const mag = 10 ** (db / 20);                   // dB → 진폭
+    const pow = mag * mag;                         // 진폭 → 에너지
+    weighted += mag * hz;
+    total += mag;
+    if (hz < 4000) {                               // 평탄도·저음 비율은 4kHz까지만 봄
+      if (hz < 500) lowPow += pow;
+      logSum += Math.log(pow);
+      n++;
+    }
+  }
+  if (!total) return null;
+  let sumPow = 0;
+  for (let i = Math.floor(80 / hzPerBin); i * hzPerBin < 4000; i++) sumPow += 10 ** (Math.max(freqBuf[i], -160) / 10);
+  const centroid = weighted / total;               // Hz
+  return {
+    // 귀는 로그로 듣기 때문에 log 스케일로 0..1 변환
+    pitch: clamp01(Math.log(centroid / PITCH_LOW) / Math.log(PITCH_HIGH / PITCH_LOW)),
+    // 기하평균 ÷ 산술평균: 모든 칸이 고르면 1, 몇 칸만 뾰족하면 0에 가까움
+    flatness: Math.exp(logSum / n) / (sumPow / n),
+    low: lowPow / sumPow
+  };
+}
+
+// ── 효과 ──
+const clamp01 = v => Math.min(1, Math.max(0, v));
+const rand = (a, b) => a + Math.random() * (b - a);
+
+function mixHex(a, b, t) {
+  const pa = parseInt(a.slice(1), 16), pb = parseInt(b.slice(1), 16);
+  const ch = sh => Math.round(((pa >> sh) & 255) * (1 - t) + ((pb >> sh) & 255) * t);
+  return `rgb(${ch(16)}, ${ch(8)}, ${ch(0)})`;
+}
+
+function flash(msg) {
+  $('mood').textContent = msg;
+  $('mood').classList.remove('flash');
+  void $('mood').offsetWidth;  // 애니메이션 다시 시작
+  $('mood').classList.add('flash');
+  flashUntil = performance.now() + 1800;
+}
+
+// 만개 축하 — 꽃 위치에서 꽃가루/반짝이를 사방으로 뿌림
+function burst(x, y, n, palette) {
+  for (let i = 0; i < n; i++) {
+    const a = rand(0, Math.PI * 2), sp = rand(60, 220);
+    particles.push({
+      x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - 80,
+      life: 0, max: rand(1, 2), color: palette[i % palette.length],
+      size: rand(3, 6), star: Math.random() < 0.4
+    });
+  }
+}
+
+function updateParticles(dt) {
+  for (const p of particles) {
+    p.life += dt;
+    p.vy += 160 * dt;            // 중력
+    p.vx *= 1 - 1.5 * dt;        // 공기 저항
+    p.x += p.vx * dt;
+    p.y += p.vy * dt;
+  }
+  particles = particles.filter(p => p.life < p.max);
+}
+
+// 민들레 홀씨 — 꽃 자리에서 바람 방향(오른쪽 위)으로 둥실둥실
+function releaseSeeds(x, y) {
+  for (let i = 0; i < 24; i++) {
+    const a = rand(-Math.PI * 0.9, Math.PI * 0.1);   // 주로 오른쪽 위로
+    const sp = rand(30, 110);
+    seeds.push({
+      x: x + rand(-10, 10), y: y + rand(-10, 10),
+      vx: Math.cos(a) * sp + 40, vy: Math.sin(a) * sp,
+      rot: rand(-0.4, 0.4), phase: rand(0, 6), life: 0, max: rand(4, 7)
+    });
+  }
+}
+
+function updateSeeds(dt) {
+  for (const s of seeds) {
+    s.life += dt;
+    // 바람이 불면 오른쪽으로 더 밀리고, 안 불면 천천히 오른쪽으로 떠감
+    s.vx += (20 + windForce * 160 - s.vx) * dt * 0.8;
+    s.vy += (-12 - s.vy) * dt * 0.6;               // 살짝 떠오름
+    s.x += (s.vx + Math.sin(s.life * 2.5 + s.phase) * 18) * dt;  // 좌우로 하늘하늘
+    s.y += s.vy * dt;
+    s.rot = Math.sin(s.life * 2 + s.phase) * 0.35;
+  }
+  const w = canvas.clientWidth;
+  seeds = seeds.filter(s => s.life < s.max && s.x < w + 30 && s.y > -30);
+}
+
+// 박수 — 줄기 아무 데나 새 잎 하나
+function addBonusLeaf(t) {
+  if (bonusLeaves.length >= MAX_BONUS) bonusLeaves.shift();  // 너무 많으면 가장 오래된 잎부터
+  bonusLeaves.push({ s: rand(0.15, 0.85), side: Math.random() < 0.5 ? -1 : 1, born: t });
+}
+
+// ── 그리기 ──
+function leaf(x, y, size, angle, wide = 1) {
+  if (size < 0.5) return;
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.rotate(angle);
+  ctx.beginPath();
+  ctx.moveTo(0, 0);
+  ctx.quadraticCurveTo(size * 0.5, -size * 0.45 * wide, size, 0);
+  ctx.quadraticCurveTo(size * 0.5, size * 0.45 * wide, 0, 0);
+  ctx.fillStyle = colors.leaf;
+  ctx.fill();
+  ctx.lineWidth = 2;
+  ctx.strokeStyle = colors.ink;
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(size * 0.1, 0);
+  ctx.lineTo(size * 0.8, 0);
+  ctx.strokeStyle = colors['leaf-dark'];
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+  ctx.restore();
+}
+
+// fluff: 0이면 보통 꽃, 1에 가까울수록 하얀 민들레 솜털로 변함
+function flower(x, y, bloom, t, high, fluff) {
+  if (bloom <= 0) return;
+  const r = 6 + bloom * 16;
+  const petal = mixHex(colors.petal, colors['petal-high'], high);
+  const core = mixHex(colors.core, colors['core-high'], high);
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.rotate(Math.sin(t * 0.8) * 0.08 + bend * 0.5);
+  ctx.lineWidth = 2;
+  ctx.strokeStyle = colors.ink;
+  ctx.globalAlpha = 1 - fluff;
+  for (let i = 0; i < 6; i++) {
+    const a = (i / 6) * Math.PI * 2;
+    ctx.beginPath();
+    ctx.ellipse(Math.cos(a) * r * 0.75, Math.sin(a) * r * 0.75, r * 0.55 * bloom + 2, r * 0.38 * bloom + 1.5, a, 0, Math.PI * 2);
+    ctx.fillStyle = petal;
+    ctx.fill();
+    ctx.stroke();
+  }
+  ctx.beginPath();
+  ctx.arc(0, 0, r * 0.42, 0, Math.PI * 2);
+  ctx.fillStyle = core;
+  ctx.fill();
+  ctx.stroke();
+  // 솜털 공: 가는 선이 방사형으로 퍼지고 끝에 작은 점
+  if (fluff > 0) {
+    ctx.globalAlpha = fluff;
+    ctx.strokeStyle = colors.ink;
+    ctx.lineWidth = 1;
+    for (let i = 0; i < 28; i++) {
+      const a = (i / 28) * Math.PI * 2 + Math.sin(t * 6 + i) * 0.06 * fluff;
+      const len = r * 1.15;
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.lineTo(Math.cos(a) * len, Math.sin(a) * len);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.arc(Math.cos(a) * len, Math.sin(a) * len, 3, 0, Math.PI * 2);
+      ctx.fillStyle = colors.fluff;
+      ctx.fill();
+      ctx.stroke();
+    }
+    ctx.beginPath();
+    ctx.arc(0, 0, 4, 0, Math.PI * 2);
+    ctx.fillStyle = colors.ink;
+    ctx.fill();
+  }
+  ctx.restore();
+}
+
+function drawParticles() {
+  for (const p of particles) {
+    ctx.globalAlpha = 1 - p.life / p.max;   // 점점 투명하게
+    ctx.fillStyle = p.color;
+    ctx.beginPath();
+    if (p.star) {  // 네 꼭지 반짝이
+      const s = p.size * 1.6;
+      ctx.moveTo(p.x, p.y - s);
+      ctx.quadraticCurveTo(p.x, p.y, p.x + s, p.y);
+      ctx.quadraticCurveTo(p.x, p.y, p.x, p.y + s);
+      ctx.quadraticCurveTo(p.x, p.y, p.x - s, p.y);
+      ctx.quadraticCurveTo(p.x, p.y, p.x, p.y - s);
+    } else {
+      ctx.arc(p.x, p.y, p.size / 2, 0, Math.PI * 2);
+    }
+    ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+}
+
+// 홀씨 하나: 아래 씨앗 + 가는 대 + 위쪽 우산 모양 솜털
+function drawSeeds() {
+  ctx.lineWidth = 1;
+  ctx.strokeStyle = colors.ink;
+  for (const s of seeds) {
+    ctx.globalAlpha = clamp01((s.max - s.life) / 1);  // 마지막 1초 동안 사라짐
+    ctx.save();
+    ctx.translate(s.x, s.y);
+    ctx.rotate(s.rot);
+    ctx.beginPath();
+    ctx.moveTo(0, 8);
+    ctx.lineTo(0, -6);
+    for (let i = -3; i <= 3; i++) {
+      const a = -Math.PI / 2 + i * 0.32;
+      ctx.moveTo(0, -6);
+      ctx.lineTo(Math.cos(a) * 8, -6 + Math.sin(a) * 8);
+    }
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.ellipse(0, 9, 1.6, 3, 0, 0, Math.PI * 2);
+    ctx.fillStyle = colors.ink;
+    ctx.fill();
+    ctx.restore();
+  }
+  ctx.globalAlpha = 1;
+}
+
+// 0→1 사이에서 살짝 넘쳤다가 돌아오는 곡선 ("뿅" 하는 느낌)
+const easeOutBack = k => 1 + 2.7 * (k - 1) ** 3 + 1.7 * (k - 1) ** 2;
+
+function draw(t, bloom, fluff) {
+  const w = canvas.clientWidth, h = canvas.clientHeight;
+  ctx.clearRect(0, 0, w, h);
+
+  const potW = w * 0.34, potH = h * 0.16;
+  const baseX = w / 2, baseY = h - potH - 18;
+  const maxH = baseY - 60;
+  const H = 8 + growth * maxH;
+  const sway = (4 + growth * 14) * (0.4 + level);  // 소리 날수록 더 흔들흔들
+
+  // 음높이 → 낮을수록 잎이 넓적하게(최대 1.7배), 높을수록 꽃이 노랗게
+  const wide = 1 + clamp01((0.5 - tone) * 2) * 0.7;
+  const high = clamp01((tone - 0.5) * 2);
+
+  // 줄기 위의 점 (아래 0 → 위 1)
+  // bend: 위로 갈수록(s²) 오른쪽으로 많이 휘고, 휜 만큼 키는 살짝 낮아짐
+  const pt = s => ({
+    x: baseX + Math.sin(s * 2.2 + t * 1.6) * sway * s + bend * H * 0.55 * s * s,
+    y: baseY - s * H * (1 - 0.25 * bend * bend * s)
+  });
+
+  // 줄기
+  ctx.beginPath();
+  const p0 = pt(0);
+  ctx.moveTo(p0.x, p0.y);
+  for (let i = 1; i <= 30; i++) { const p = pt(i / 30); ctx.lineTo(p.x, p.y); }
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  ctx.strokeStyle = colors.ink;
+  ctx.lineWidth = 4 + growth * 6 + 4;
+  ctx.stroke();
+  ctx.strokeStyle = colors.stem;
+  ctx.lineWidth = 4 + growth * 6;
+  ctx.stroke();
+
+  // 잎 파닥임 세기: 소리 + 바람
+  const flapAmp = 0.12 * (0.3 + level) + windForce * 0.35;
+
+  // 잎: 고정된 높이(px)마다 하나씩. 줄기가 그 높이를 넘으면 돋아나서 커짐
+  const gap = 38, leafMax = 22 + growth * 22;
+  for (let i = 0, y = 26; y < H - 12; i++, y += gap) {
+    const p = pt(y / H);
+    const size = clamp01((H - 12 - y) / 50) * leafMax;
+    const flap = Math.sin(flutter + i) * flapAmp;
+    // 바람 불면 잎이 오른쪽으로 쏠림 (+bend)
+    leaf(p.x, p.y, size, (i % 2 ? -0.45 + flap : Math.PI + 0.45 - flap) + bend * 0.6, wide);
+  }
+
+  // 박수 잎: 줄기 위치(s) 비율로 붙어 있어서 식물이 크고 작아지면 같이 따라감
+  for (const b of bonusLeaves) {
+    const p = pt(b.s);
+    const pop = easeOutBack(clamp01((t - b.born) / 0.45));
+    const flap = Math.sin(flutter * 1.2 + b.s * 9) * flapAmp * 1.2;
+    leaf(p.x, p.y, leafMax * 0.75 * pop, (b.side > 0 ? -0.8 + flap : Math.PI + 0.8 - flap) + bend * 0.6, wide);
+  }
+
+  // 꼭대기: 새싹 잎 두 장 + 많이 자라면 꽃
+  const top = pt(1);
+  flowerPos = top;
+  if (bloom < 1) {
+    const s = (12 + growth * 8) * (1 - bloom);
+    leaf(top.x, top.y, s, -Math.PI / 2 - 0.6 + bend * 0.5, wide);
+    leaf(top.x, top.y, s, -Math.PI / 2 + 0.6 + bend * 0.5, wide);
+  }
+  flower(top.x, top.y, bloom, t, high, fluff);
+
+  // 화분
+  ctx.lineWidth = 2.5;
+  ctx.strokeStyle = colors.ink;
+  ctx.beginPath();
+  ctx.ellipse(baseX, baseY, potW / 2 - 4, 7, 0, 0, Math.PI * 2);
+  ctx.fillStyle = colors.soil;
+  ctx.fill();
+  ctx.beginPath();
+  ctx.moveTo(baseX - potW / 2, baseY);
+  ctx.lineTo(baseX + potW / 2, baseY);
+  ctx.lineTo(baseX + potW * 0.38, baseY + potH);
+  ctx.lineTo(baseX - potW * 0.38, baseY + potH);
+  ctx.closePath();
+  ctx.fillStyle = colors.pot;
+  ctx.fill();
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.roundRect(baseX - potW / 2 - 6, baseY - 4, potW + 12, 16, 5);
+  ctx.fill();
+  ctx.stroke();
+
+  // 바닥 선
+  ctx.beginPath();
+  ctx.moveTo(14, baseY + potH + 0.5);
+  ctx.lineTo(w - 14, baseY + potH + 0.5);
+  ctx.stroke();
+
+  drawSeeds();
+  drawParticles();  // 꽃가루는 맨 위에
+}
+
+// ── 루프 ──
+const MOODS = [[0.05, '쿨쿨…'], [0.3, '음? 무슨 소리지'], [0.6, '쑥쑥 자라는 중!'], [0.85, '조금만 더!'], [1.01, '활짝 피었어요 🌸']];
+let last = performance.now();
+
+function frame(now) {
+  const dt = Math.min(0.1, (now - last) / 1000);
+  const t = now / 1000;
+  last = now;
+
+  // 음량
+  const raw = readLevel();
+  level += (raw - level) * (raw > level ? 0.5 : 0.12);  // 게이지는 빨리 올라가고 천천히 내려감
+
+  // 스펙트럼 분석 (소리가 어느 정도 날 때만 — 조용할 때는 잡음이라 무시)
+  const spec = analyser && raw > 0.2 ? readSpectrum() : null;
+
+  // 바람: 충분히 크고 + 음 없는 잡음이고 + 저음이 많고 + WIND_HOLD초 넘게 이어지면
+  const windyNow = spec && raw > WIND_MIN && spec.flatness > WIND_FLAT && spec.low > WIND_LOW;
+  windHold = windyNow ? windHold + dt : Math.max(0, windHold - dt * 2);
+  const windTarget = windHold > WIND_HOLD ? raw : 0;
+  windForce += (windTarget - windForce) * (windTarget > windForce ? 0.15 : 0.05);
+
+  // 줄기 휘기: 스프링. 바람 세기만큼 당기고, 멈추면 출렁이며 제자리로
+  bendVel += ((windForce - bend) * 30 - bendVel * 4) * dt;
+  bend += bendVel * dt;
+  flutter += dt * (2 + windForce * 14);   // 바람 세면 잎이 빠르게 파닥
+
+  // 박수: 음량이 한 프레임 만에 확 뛰면. 0.25초 안에 또 뛰는 건 같은 박수로 침
+  // (바람 불기 시작할 때도 음량이 뛰므로, 바람 같은 소리면 박수로 안 침)
+  if (raw - prevRaw > CLAP_JUMP && raw > CLAP_MIN && t - lastClap > 0.25 && !windyNow) {
+    lastClap = t;
+    addBonusLeaf(t);
+    flash('짝! 새 잎 뿅 🌱');
+  }
+  prevRaw = raw;
+
+  // 음높이: 바람 소리는 음이 아니라서 제외
+  if (spec && !windyNow) tone += (spec.pitch - tone) * 0.08;
+
+  // 키
+  if (resetting) {
+    // 홀씨 날린 뒤: 소리와 상관없이 빠르게 새싹으로
+    growth += (0 - growth) * (1 - Math.exp(-RESET_RATE * dt));
+    if (growth < 0.03) { resetting = false; flash('새싹부터 다시! 🌱'); }
+  } else {
+    const rate = level > growth ? GROW_RATE : SHRINK_RATE;
+    growth += (level - growth) * (1 - Math.exp(-rate * dt));
+  }
+  if (growth < 0.05) bonusLeaves = [];  // 거의 다 시들면 박수 잎도 떨어짐
+
+  // 꽃: 홀씨 날리는 중에는 꽃 없음
+  const bloom = resetting ? 0 : clamp01((growth - 0.7) / 0.25);
+
+  // 만개 축하: 꽃이 다 피는 순간 한 번. 키가 75% 밑으로 내려가야 다시 터질 수 있음
+  if (bloom >= 1 && !celebrated) {
+    celebrated = true;
+    const high = clamp01((tone - 0.5) * 2);
+    burst(flowerPos.x, flowerPos.y, 50, [
+      mixHex(colors.petal, colors['petal-high'], high),
+      mixHex(colors.core, colors['core-high'], high), '#ffffff', colors.leaf
+    ]);
+    flash('활짝 피었어요! 🎉');
+  }
+  if (growth < 0.75) celebrated = false;
+
+  // 민들레: 꽃이 핀 상태(80% 이상)에서 바람을 불면 점점 솜털로 → WIND_RELEASE초 채우면 훅 날아감
+  if (bloom > 0.8 && windHold > WIND_HOLD) blowAt += dt;
+  else blowAt = Math.max(0, blowAt - dt * 0.5);
+  const fluff = clamp01(blowAt / WIND_RELEASE);
+  if (fluff >= 1) {
+    releaseSeeds(flowerPos.x, flowerPos.y);
+    blowAt = 0;
+    resetting = true;
+    flash('후~ 홀씨가 날아가요 🌬️');
+  }
+
+  updateParticles(dt);
+  updateSeeds(dt);
+
+  draw(t, bloom, resetting ? 0 : fluff);
+
+  $('level').style.width = (level * 100).toFixed(1) + '%';
+  $('levelNum').textContent = Math.round(level * 100);
+  $('tone').style.left = (tone * 100).toFixed(1) + '%';
+  $('toneTxt').textContent = tone < 0.35 ? '낮음' : tone > 0.65 ? '높음' : '중간';
+  $('wind').style.width = (windForce * 100).toFixed(1) + '%';
+  $('windNum').textContent = Math.round(windForce * 100);
+  $('height').textContent = Math.round(growth * MAX_CM) + 'cm';
+  if (now > flashUntil) {
+    $('mood').classList.remove('flash');
+    $('mood').textContent = resetting ? '다시 자랄 준비 중…' : MOODS.find(([v]) => growth < v)[1];
+  }
+
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
