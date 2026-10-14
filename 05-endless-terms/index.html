@@ -127,12 +127,20 @@ dialog p { margin: 0; font-size: 13px; color: var(--muted); min-height: 1.5em; }
 /* 이름 등록 + 랭킹 */
 .ranking { display: flex; flex-direction: column; gap: 12px; padding-top: 14px; border-top: 1px dashed var(--line); text-align: left; }
 .ranking h3 { font-family: var(--display); font-weight: 400; font-size: 18px; margin: 0; text-align: center; }
-#rankForm { display: flex; gap: 8px; }
-#rankForm input { flex: 1; min-width: 0; font: inherit; color: inherit; padding: 9px 12px; background: var(--soft);
-  border: 2px solid var(--ink); border-radius: 10px; }
-#rankForm button { font-family: var(--display); font-size: 16px; padding: 0 16px; background: var(--ink); color: var(--sheet);
+#rankRetry { align-self: center; font-family: var(--display); font-size: 15px; padding: 6px 16px; background: var(--ink); color: var(--sheet);
   border: 2px solid var(--ink); border-radius: 10px; cursor: pointer; }
-#rankForm button:disabled { opacity: .5; cursor: default; }
+#rankRetry:disabled { opacity: .5; cursor: default; }
+
+/* 시작 화면: 이름 입력 */
+#startForm { padding: 20px 18px; display: flex; flex-direction: column; gap: 10px; }
+#startForm label { font-family: var(--display); font-size: 18px; }
+#startForm input { font: inherit; color: inherit; font-size: 17px; padding: 11px 14px; background: var(--soft);
+  border: 2px solid var(--ink); border-radius: 10px; }
+#startMsg { margin: 0; font-size: 12px; color: var(--muted); }
+#startMsg.err { color: var(--new); }
+#startForm button { margin-top: 6px; font-family: var(--display); font-size: 20px; padding: 12px; background: var(--accent); color: var(--on-accent);
+  border: 2px solid var(--ink); border-radius: 12px; box-shadow: 3px 3px 0 var(--ink); cursor: pointer; }
+#startForm button:active { translate: 2px 2px; box-shadow: 1px 1px 0 var(--ink); }
 #rankMsg { text-align: center; font-size: 13px !important; min-height: 1.4em; }
 .tabs { display: grid; grid-template-columns: 1fr 1fr; border: 2px solid var(--ink); border-radius: 10px; overflow: hidden; }
 .tabs button { font-family: var(--display); font-size: 15px; padding: 7px; background: var(--sheet); border: 0; cursor: pointer; }
@@ -154,13 +162,27 @@ dialog p { margin: 0; font-size: 13px; color: var(--muted); min-height: 1.5em; }
 </style>
 </head>
 <body>
-<main class="wrap" id="game">
+<main class="wrap" id="start">
+  <header class="head">
+    <h1>킹받는 약관</h1>
+    <p>약관에 동의하기만 하면 되는 아주 쉬운 게임이에요. 아마도.</p>
+  </header>
+
+  <p id="challenge" class="challenge" hidden></p>
+
+  <form id="startForm" class="card">
+    <label for="name">이름</label>
+    <input id="name" maxlength="12" placeholder="랭킹에 올라갈 이름" autocomplete="nickname">
+    <p id="startMsg" role="status">12자까지 · 다 깨면 이 이름으로 랭킹에 올라가요</p>
+    <button type="submit">시작하기</button>
+  </form>
+</main>
+
+<main class="wrap" id="game" hidden>
   <header class="head">
     <h1>킹받는 약관</h1>
     <p>가입하려면 약관을 끝까지 읽고 동의해 주세요. 금방 끝나요. 아마도.</p>
   </header>
-
-  <p id="challenge" class="challenge" hidden></p>
 
   <section class="card" aria-label="이용약관">
     <div class="card-head"><h2>킹받음 서비스 이용약관</h2><span id="ver">v1.0.0</span></div>
@@ -206,11 +228,8 @@ dialog p { margin: 0; font-size: 13px; color: var(--muted); min-height: 1.5em; }
 
     <div class="ranking">
       <h3>🏅 랭킹</h3>
-      <form id="rankForm">
-        <input id="name" maxlength="12" placeholder="이름 (12자까지)" autocomplete="nickname" aria-label="랭킹에 남길 이름">
-        <button type="submit">등록</button>
-      </form>
       <p id="rankMsg" role="status"></p>
+      <button id="rankRetry" type="button" hidden>다시 등록하기</button>
       <div class="tabs">
         <button type="button" data-board="fast" aria-pressed="true">⚡ 빠른 순</button>
         <button type="button" data-board="zen" aria-pressed="false">🧘 해탈 순</button>
@@ -277,7 +296,8 @@ const TAUNTS = ['어림없지', '잡아봐라~', '느려요 😝', '거기 아�
 const SWAP_MSGS = ['어? 버튼이 바뀌었네요 😇', '다시 한 번 신중하게…', '마지막 기회예요 🤨'];
 
 const terms = $('terms'), zone = $('zone'), agree = $('agree'), chk = $('chk');
-const startTime = performance.now();
+let startTime = 0;     // 시작하기 누른 순간부터 잼
+let playerName = '';
 let extraIdx = 0;      // 추가된 조항 수
 let loading = false;   // 조항 "불러오는 중"
 let reachedEnd = false;
@@ -310,7 +330,29 @@ function clauseEl([title, body], isNew) {
 }
 BASE.forEach(c => terms.append(clauseEl(c)));
 
-timer = setInterval(() => { $('time').textContent = fmtTime(performance.now() - startTime); }, 1000);
+// ── 0. 시작 화면: 이름 받고 시작 ──
+const NAME_KEY = 'endless-terms:name';
+try { $('name').value = localStorage.getItem(NAME_KEY) || ''; } catch {}   // 지난번 이름 미리 채워 둠
+
+$('startForm').addEventListener('submit', e => {
+  e.preventDefault();
+  const name = Array.from($('name').value.trim()).slice(0, 12).join('');
+  if (!name) {
+    $('startMsg').textContent = '이름을 입력해야 시작할 수 있어요';
+    $('startMsg').classList.add('err');
+    $('name').focus();
+    return;
+  }
+  playerName = name;
+  try { localStorage.setItem(NAME_KEY, name); } catch {}
+  $('start').hidden = true;
+  $('game').hidden = false;
+  placeCenter();   // 숨겨져 있을 땐 크기가 0이라 보인 다음에 가운데 맞춤
+  updateRead();
+  startTime = performance.now();
+  timer = setInterval(() => { $('time').textContent = fmtTime(performance.now() - startTime); }, 1000);
+  window.scrollTo(0, 0);
+});
 
 // ── 1. 스크롤: 끝에 닿으면 조항이 늘어남 ──
 function updateRead() {
@@ -588,7 +630,7 @@ function showResult() {
       ? `🏆 ${rival.name}님보다 ${(-diff / 1000).toFixed(1)}초 빨라요!`
       : `😮‍💨 ${rival.name}님보다 ${(diff / 1000).toFixed(1)}초 느려요…`;
   }
-  loadBoard('fast');
+  submitRank();   // 시작할 때 받은 이름으로 자동 등록 → 끝나면 순위표도 새로 불러옴
   $('rClauses').textContent = BASE.length + extraIdx + '개';
   $('rEscapes').textContent = escapes + btnEscapes + '번';
   $('rBounces').textContent = bounces + '번';
@@ -618,11 +660,8 @@ if (rival) {
 }
 
 // ── 7. 공유하기 ──
-const NAME_KEY = 'endless-terms:name';
-try { $('name').value = localStorage.getItem(NAME_KEY) || ''; } catch {}
-
 $('share').addEventListener('click', async () => {
-  const name = $('name').value.trim();
+  const name = playerName;
   const url = new URL(location.href);
   url.search = '';
   url.hash = '';
@@ -676,18 +715,16 @@ async function loadBoard(kind) {
 }
 document.querySelectorAll('.tabs button').forEach(b => b.addEventListener('click', () => loadBoard(b.dataset.board)));
 
-$('rankForm').addEventListener('submit', async e => {
-  e.preventDefault();
-  const btn = $('rankForm').querySelector('button');
-  const name = $('name').value.trim();
-  if (!name) { $('rankMsg').textContent = '이름을 입력해 주세요'; $('name').focus(); return; }
+// 결과 화면이 뜨면 자동으로 한 번 등록. 실패하면 "다시 등록하기" 버튼이 나옴
+async function submitRank() {
+  const btn = $('rankRetry');
   btn.disabled = true;
-  $('rankMsg').textContent = '등록 중…';
+  $('rankMsg').textContent = `${playerName} 님 기록을 랭킹에 올리는 중…`;
   try {
     const r = await fetch(API, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, ms: Math.round(resultMs), escapes: escapes + btnEscapes }),
+      body: JSON.stringify({ name: playerName, ms: Math.round(resultMs), escapes: escapes + btnEscapes }),
     });
     const out = await r.json().catch(() => ({}));
     const fail = msg => Object.assign(new Error(msg), { ours: true });
@@ -696,15 +733,16 @@ $('rankForm').addEventListener('submit', async e => {
     if (!r.ok) throw fail('랭킹 서버에 연결할 수 없어요 😢');
     myId = out.id;
     myRank = out;
-    try { localStorage.setItem(NAME_KEY, name); } catch {}
-    $('rankForm').hidden = true;   // 한 판에 한 번만 등록
+    btn.hidden = true;   // 한 판에 한 번만 등록
     $('rankMsg').textContent = `⚡ 빠른 순 ${out.fast}위 · 🧘 해탈 순 ${out.zen}위 (총 ${out.total}명) — 이미지에도 들어가요`;
-    loadBoard(boardKind);
   } catch (err) {
+    btn.hidden = err.message.includes('기록이 이상');   // 기록 자체가 거절된 건 다시 해도 소용없음
     btn.disabled = false;
     $('rankMsg').textContent = err.ours ? err.message : '랭킹 서버에 연결할 수 없어요 😢';
   }
-});
+  loadBoard(boardKind);
+}
+$('rankRetry').addEventListener('click', submitRank);
 
 // ── 9. 결과 이미지 저장 ──
 // 캔버스에 결과 카드를 직접 그려서 PNG로 내려받음. 인스타 피드 비율(4:5, 1080×1350)
@@ -748,7 +786,7 @@ async function drawCard() {
   g.fillRect(0, 0, W, H);
   box(60, 60, 948, 1218, 48, CARD.sheet, CARD.ink);
 
-  const name = $('name').value.trim() || '익명의 회원';
+  const name = playerName || '익명의 회원';
   text('킹받는 약관', W / 2, 140, 40, CARD.muted, { font: 'Gowun' });
   text('🎉 가입 완료!', W / 2, 225, 84, CARD.ink);
   text(`${name} 님의 기록`, W / 2, 315, 44, CARD.muted, { font: 'Gowun' });
@@ -791,7 +829,7 @@ $('saveImg').addEventListener('click', async () => {
   try {
     const cv = await drawCard();
     const blob = await new Promise(r => cv.toBlob(r, 'image/png'));
-    const safe = ($('name').value.trim() || '익명').replace(/[\\/:*?"<>|\s]/g, '_');
+    const safe = (playerName || '익명').replace(/[\\/:*?"<>|\s]/g, '_');
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
     a.download = `킹받는약관_${safe}_${fmtPrecise(resultMs).replace(':', '분')}초.png`;   // 킹받는약관_세인_1분23.4초.png
