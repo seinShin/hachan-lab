@@ -1,0 +1,536 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>킹받는 약관</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gowun+Dodum&family=Jua&display=swap">
+<style>
+/* 레이아웃: 가운데 한 단. 위에서부터 제목 → 약관 스크롤 상자 → 동의 체크박스 놀이터 → 가입 버튼 → 기록. */
+:root {
+  --paper: #eef1f7; --sheet: #ffffff; --ink: #1f2433; --muted: #6b7286; --line: #d6dbe7;
+  --accent: #3a63e8; --on-accent: #ffffff; --new: #e8503f; --soft: #f4f6fb;
+  --display: 'Jua', 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif;
+  --body: 'Gowun Dodum', 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --paper: #14161d; --sheet: #1f222c; --ink: #eceef5; --muted: #9ba1b4; --line: #343846;
+  --accent: #7d9bff; --on-accent: #0d1430; --new: #ff7566; --soft: #262a35; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --paper: #14161d; --sheet: #1f222c; --ink: #eceef5; --muted: #9ba1b4; --line: #343846;
+  --accent: #7d9bff; --on-accent: #0d1430; --new: #ff7566; --soft: #262a35; color-scheme: dark }
+
+*, *::before, *::after { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body { margin: 0; min-height: 100vh; background: var(--paper); color: var(--ink); font-family: var(--body); font-size: 15px;
+  display: flex; flex-direction: column; align-items: center; padding: 28px 16px 40px; }
+button { font: inherit; color: inherit; }
+:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+.wrap { width: min(100%, 440px); display: flex; flex-direction: column; gap: 16px; }
+
+.head { text-align: center; }
+.head h1 { font-family: var(--display); font-weight: 400; font-size: clamp(30px, 9vw, 40px); margin: 0; line-height: 1; }
+.head p { margin: 8px 0 0; color: var(--muted); font-size: 13px; text-wrap: balance; }
+
+/* 약관 상자 */
+.card { background: var(--sheet); border: 2px solid var(--ink); border-radius: 14px; overflow: hidden; }
+.card-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; padding: 12px 16px; border-bottom: 2px solid var(--ink); }
+.card-head h2 { font-family: var(--display); font-weight: 400; font-size: 18px; margin: 0; }
+#ver { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+#ver.bump { color: var(--new); animation: pop .3s ease-out; }
+#terms { height: 300px; overflow-y: auto; padding: 4px 16px 16px; font-size: 13px; line-height: 1.65; overscroll-behavior: contain; }
+#terms article { padding: 12px 0; border-bottom: 1px dashed var(--line); }
+#terms h3 { font-size: 14px; margin: 0 0 4px; display: flex; align-items: center; gap: 6px; }
+#terms p { margin: 0; color: var(--muted); }
+#terms .new h3::after { content: 'NEW'; font-size: 10px; font-family: var(--display); font-weight: 400; color: var(--on-accent);
+  background: var(--new); border-radius: 6px; padding: 1px 6px; }
+#terms .new { animation: slide .4s ease-out; }
+#terms .loader { padding: 16px 0; text-align: center; color: var(--muted); }
+#terms .loader::before { content: ''; display: inline-block; width: 12px; height: 12px; margin-right: 8px; vertical-align: -1px;
+  border: 2px solid var(--line); border-top-color: var(--accent); border-radius: 50%; animation: spin .7s linear infinite; }
+@keyframes spin { to { rotate: 360deg; } }
+@keyframes slide { from { opacity: 0; translate: 0 10px; } }
+@keyframes pop { from { opacity: 0; scale: .8; } }
+.read { display: flex; align-items: center; gap: 10px; padding: 10px 16px; border-top: 2px solid var(--ink); font-size: 12px; color: var(--muted); }
+.read i { flex: 1; height: 8px; border-radius: 6px; background: var(--soft); overflow: hidden; }
+.read i b { display: block; height: 100%; width: 0; background: var(--accent); transition: width .2s; }
+.read span:last-child { min-width: 34px; text-align: right; font-variant-numeric: tabular-nums; }
+
+/* 체크박스 놀이터: 이 안에서 체크박스가 도망 다님 */
+#zone { position: relative; height: 180px; border: 2px dashed var(--line); border-radius: 14px; background: var(--soft); }
+#lockHint { position: absolute; inset: 12px 12px auto; margin: 0; text-align: center; font-size: 13px; color: var(--muted); }
+#agree { position: absolute; left: 0; top: 0; max-width: calc(100% - 12px); display: flex; align-items: center; gap: 8px;
+  background: var(--sheet); border: 2px solid var(--ink); border-radius: 10px; padding: 8px 12px; font-size: 13px;
+  box-shadow: 2px 2px 0 var(--ink); cursor: pointer; transition: left .22s cubic-bezier(.3, 1.4, .5, 1), top .22s cubic-bezier(.3, 1.4, .5, 1); }
+#agree.locked { opacity: .45; cursor: not-allowed; box-shadow: none; }
+#agree.tired { animation: pant 1s ease-in-out infinite; }
+@keyframes pant { 50% { scale: .96; } }
+#agree input { width: 18px; height: 18px; margin: 0; accent-color: var(--accent); flex: none; cursor: inherit; }
+#taunt { position: absolute; left: 50%; bottom: calc(100% + 6px); translate: -50% 0; white-space: nowrap; pointer-events: none;
+  background: var(--ink); color: var(--sheet); font-family: var(--display); font-size: 13px; padding: 3px 9px; border-radius: 8px; }
+#taunt.pop { animation: pop .2s ease-out; }
+
+#submit { font-family: var(--display); font-size: 20px; padding: 12px; background: var(--accent); color: var(--on-accent);
+  border: 2px solid var(--ink); border-radius: 12px; box-shadow: 3px 3px 0 var(--ink); cursor: pointer; }
+#submit:active:not(:disabled) { translate: 2px 2px; box-shadow: 1px 1px 0 var(--ink); }
+#submit:disabled { background: var(--soft); color: var(--muted); box-shadow: none; cursor: not-allowed; }
+/* 동의 버튼이 도망가면 원래 자리엔 빈 칸 + 안내만 남음 */
+.slot { position: relative; min-height: 54px; display: flex; flex-direction: column; }
+#slotHint { margin: auto; font-size: 13px; color: var(--muted); }
+#submit.loose { position: fixed; z-index: 5; width: max-content; padding: 12px 22px; white-space: nowrap;
+  transition: left .25s cubic-bezier(.3, 1.4, .5, 1), top .25s cubic-bezier(.3, 1.4, .5, 1); }
+#submit.tired { animation: pant 1s ease-in-out infinite; }
+
+/* 기록 */
+.stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 0; }
+.stats div { background: var(--sheet); border: 1.5px solid var(--line); border-radius: 10px; padding: 8px 6px; text-align: center; min-width: 0; }
+.stats dt { font-size: 12px; color: var(--muted); }
+.stats dd { margin: 4px 0 0; font-family: var(--display); font-size: 17px; font-variant-numeric: tabular-nums; }
+
+/* 확인 창 */
+dialog { width: min(calc(100% - 32px), 360px); border: 2px solid var(--ink); border-radius: 16px; padding: 22px 20px 20px;
+  background: var(--sheet); color: var(--ink); box-shadow: 4px 4px 0 var(--ink); text-align: center; }
+dialog::backdrop { background: rgb(0 0 0 / .45); }
+dialog h2 { font-family: var(--display); font-weight: 400; font-size: 22px; margin: 0 0 8px; }
+dialog p { margin: 0; font-size: 13px; color: var(--muted); min-height: 1.5em; }
+.btns { display: flex; gap: 10px; margin-top: 18px; }
+.btns button { flex: 1; font-family: var(--display); font-size: 18px; padding: 10px; border: 2px solid var(--ink); border-radius: 10px; cursor: pointer; }
+#yes { background: var(--accent); color: var(--on-accent); }
+#no { background: var(--sheet); }
+.bar { margin-top: 18px; height: 14px; border: 2px solid var(--ink); border-radius: 8px; overflow: hidden; background: var(--soft); }
+.bar b { display: block; height: 100%; width: 0; background: var(--accent); transition: width 1.4s ease-out; }
+#pct { margin-top: 6px; font-variant-numeric: tabular-nums; }
+
+/* 결과 */
+#done { text-align: center; }
+#done .card { padding: 22px 18px; display: flex; flex-direction: column; gap: 14px; }
+#done h2 { font-family: var(--display); font-weight: 400; font-size: 28px; margin: 0; }
+#done p { margin: 0; color: var(--muted); font-size: 14px; text-wrap: balance; }
+#done .stats { grid-template-columns: repeat(2, 1fr); }
+#rank { font-family: var(--display); font-size: 18px; color: var(--accent) !important; }
+#again { font-family: var(--display); font-size: 18px; padding: 10px; background: var(--sheet); border: 2px solid var(--ink); border-radius: 12px; cursor: pointer; }
+
+#toast { position: fixed; left: 50%; bottom: 24px; translate: -50% 0; width: max-content; max-width: calc(100% - 32px);
+  background: var(--ink); color: var(--sheet); padding: 10px 16px; border-radius: 12px; font-size: 14px; text-align: center;
+  opacity: 0; transition: opacity .2s, translate .2s; pointer-events: none; z-index: 10; }
+#toast.show { opacity: 1; translate: -50% -6px; }
+</style>
+</head>
+<body>
+<main class="wrap" id="game">
+  <header class="head">
+    <h1>킹받는 약관</h1>
+    <p>가입하려면 약관을 끝까지 읽고 동의해 주세요. 금방 끝나요. 아마도.</p>
+  </header>
+
+  <section class="card" aria-label="이용약관">
+    <div class="card-head"><h2>킹받음 서비스 이용약관</h2><span id="ver">v1.0.0</span></div>
+    <div id="terms" tabindex="0"></div>
+    <div class="read" aria-hidden="true"><span>읽은 정도</span><i><b id="readBar"></b></i><span id="readNum">0%</span></div>
+  </section>
+
+  <section id="zone" aria-label="동의">
+    <p id="lockHint">🔒 약관을 끝까지 읽어야 체크할 수 있어요</p>
+    <label id="agree" class="locked">
+      <input type="checkbox" id="chk" disabled>
+      <span>위 약관을 모두 읽었으며 동의합니다 (필수)</span>
+      <span id="taunt" hidden></span>
+    </label>
+  </section>
+
+  <div class="slot">
+    <button id="submit" type="button" disabled>동의하기</button>
+    <p id="slotHint" hidden>버튼이 도망갔어요 👀 찾아서 눌러 주세요</p>
+  </div>
+
+  <dl class="stats">
+    <div><dt>걸린 시간</dt><dd id="time">0:00</dd></div>
+    <div><dt>늘어난 조항</dt><dd id="added">0</dd></div>
+    <div><dt>도망 횟수</dt><dd id="escapes">0</dd></div>
+  </dl>
+</main>
+
+<main class="wrap" id="done" hidden>
+  <section class="card">
+    <h2>🎉 가입 완료!</h2>
+    <p>축하합니다. 킹받음 서비스의 회원이 되셨어요.<br>(서비스는 아직 없습니다)</p>
+    <p id="rank"></p>
+    <dl class="stats">
+      <div><dt>걸린 시간</dt><dd id="rTime"></dd></div>
+      <div><dt>읽은 조항</dt><dd id="rClauses"></dd></div>
+      <div><dt>도망 횟수</dt><dd id="rEscapes"></dd></div>
+      <div><dt>빨리 읽다 걸림</dt><dd id="rBounces"></dd></div>
+    </dl>
+    <button id="again" type="button">다시 가입하기</button>
+  </section>
+</main>
+
+<dialog id="confirm">
+  <h2>정말 동의하시겠습니까?</h2>
+  <p id="dlgMsg"></p>
+  <div class="btns" id="btns">
+    <button id="no" type="button">아니오</button>
+    <button id="yes" type="button">예</button>
+  </div>
+  <div id="progress" hidden>
+    <div class="bar"><b id="bar"></b></div>
+    <p id="pct">0%</p>
+  </div>
+</dialog>
+
+<div id="toast" role="status"></div>
+
+<script>
+const $ = id => document.getElementById(id);
+
+// ── 조절용 숫자들 ──
+const MAX_ESCAPE = 15;    // 체크박스가 이만큼 도망치면 지쳐서 잡혀 줌
+const FLEE_DIST = 30;     // 마우스가 체크박스에서 이 거리(px) 안으로 오면 도망
+const MAX_BOUNCE = 3;     // "너무 빨리 내렸다"고 위로 올려 보내는 최대 횟수
+const FAST_PX = 900;      // 0.3초 안에 이만큼 넘게 내리면 "너무 빠름"
+const MAX_SWAP = 3;       // 확인 창에서 예/아니오 버튼이 자리 바꾸는 횟수
+const MAX_BTN_ESCAPE = 12;  // 동의 버튼이 이만큼 도망치면 지쳐서 눌려 줌
+const BTN_FLEE_DIST = 40;   // 마우스가 동의 버튼에서 이 거리(px) 안으로 오면 도망
+
+// 처음부터 보이는 조항
+const BASE = [
+  ['제1조 (목적)', '본 약관은 주식회사 킹받음(이하 "회사")이 제공하는 아무 서비스(이하 "서비스")의 이용과 관련하여 회사와 회원의 권리, 의무 및 킹받음의 정도를 규정함을 목적으로 합니다.'],
+  ['제2조 (정의)', '"회원"이란 이 약관을 끝까지 읽으려고 시도한 모든 사람을 말합니다. 시도만 해도 회원입니다. 이미 늦었습니다.'],
+  ['제3조 (약관의 효력)', '본 약관은 회원이 스크롤을 내리는 순간 효력이 발생하며, 스크롤을 다시 올려도 효력은 사라지지 않습니다.'],
+  ['제4조 (약관의 변경)', '회사는 회원이 약관을 끝까지 읽기 직전에 약관을 변경할 수 있습니다. 실제로 자주 그럽니다.'],
+  ['제5조 (서비스의 내용)', '서비스의 내용은 추후 정합니다. 추후가 언제인지도 추후 정합니다.'],
+  ['제6조 (회원의 의무)', '회원은 본 약관을 꼼꼼히 읽어야 하며, 대충 읽은 것이 적발될 경우 조금 위로 돌아가서 다시 읽어야 합니다.'],
+  ['제7조 (체크박스의 인격)', '동의 체크박스와 동의 버튼은 독립된 인격체로서 회원의 커서를 거부할 권리를 가집니다.'],
+  ['제8조 (개인정보 수집)', '회사는 회원의 이름, 연락처, 그리고 이 약관을 읽으며 한숨 쉰 횟수를 수집합니다.'],
+  ['제9조 (면책)', '회원이 본 약관을 읽다가 키보드를 내리쳐 발생한 손해에 대해 회사는 책임지지 않습니다.'],
+  ['제10조 (분쟁 해결)', '회사와 회원 간의 분쟁은 가위바위보 3판 2선승제로 해결합니다. 회사가 질 경우 5판 3선승제로 변경됩니다.'],
+];
+
+// 맨 아래에 닿을 때마다 하나씩 추가되는 조항 — 2개뿐, 다 떨어지면 진짜 끝
+const EXTRA = [
+  ['제11조 (마지막 조항)', '이 조항이 마지막 조항입니다.'],
+  ['제12조 (진짜 마지막 조항)', '제11조는 거짓말이었습니다. 죄송합니다. 이번엔 진짜 끝입니다. 아래 체크박스에 동의해 주세요. 쉬워요. 🙂'],
+];
+
+const UPDATE_MSGS = ['📢 약관이 업데이트되었어요', '📢 새 조항이 추가되었어요', '📢 법무팀이 방금 한 줄 더 썼어요',
+  '📢 아 잠깐만요, 하나 더요', '📢 깜빡한 게 있어서요', '📢 이번이 진짜 마지막…은 아니고요'];
+const TAUNTS = ['어림없지', '잡아봐라~', '느려요 😝', '거기 아니에요', '아깝다!', '조금만 더~', '손이 느리시네요',
+  '여기여기', '헉 놀랐잖아', '그만 따라와요', '흥!', '좀 지친다…', '헥헥', '마지막이야…'];
+const SWAP_MSGS = ['어? 버튼이 바뀌었네요 😇', '다시 한 번 신중하게…', '마지막 기회예요 🤨'];
+
+const terms = $('terms'), zone = $('zone'), agree = $('agree'), chk = $('chk');
+const startTime = performance.now();
+let extraIdx = 0;      // 추가된 조항 수
+let loading = false;   // 조항 "불러오는 중"
+let reachedEnd = false;
+let escapes = 0, tired = false, lastFlee = 0;
+let btnEscapes = 0, btnTired = false, lastBtnFlee = 0;
+let bounces = 0, lastBounce = 0, samples = [];
+let expiredOnce = false;
+let swaps = 0, finishing = false;
+let timer;
+
+// ── 공통 ──
+let toastTimer;
+function toast(msg) {
+  $('toast').textContent = msg;
+  $('toast').classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => $('toast').classList.remove('show'), 2400);
+}
+const fmtTime = ms => { const s = Math.floor(ms / 1000); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; };
+
+function clauseEl([title, body], isNew) {
+  const a = document.createElement('article');
+  if (isNew) a.className = 'new';
+  a.innerHTML = '<h3></h3><p></p>';
+  a.querySelector('h3').textContent = title;
+  a.querySelector('p').textContent = body;
+  return a;
+}
+BASE.forEach(c => terms.append(clauseEl(c)));
+
+timer = setInterval(() => { $('time').textContent = fmtTime(performance.now() - startTime); }, 1000);
+
+// ── 1. 스크롤: 끝에 닿으면 조항이 늘어남 ──
+function updateRead() {
+  const max = terms.scrollHeight - terms.clientHeight;
+  const pct = max > 0 ? Math.round((terms.scrollTop / max) * 100) : 100;
+  $('readBar').style.width = pct + '%';
+  $('readNum').textContent = pct + '%';
+}
+
+// 너무 빨리 내리면 위로 돌려보냄: 최근 0.3초 동안 내린 거리로 판단
+function tooFast() {
+  const now = performance.now();
+  samples.push([now, terms.scrollTop]);
+  samples = samples.filter(([t]) => now - t < 300);
+  const dist = terms.scrollTop - samples[0][1];
+  if (dist < FAST_PX || bounces >= MAX_BOUNCE || now - lastBounce < 4000 || reachedEnd) return false;
+  bounces++;
+  lastBounce = now;
+  samples = [];
+  terms.scrollTo({ top: Math.max(0, terms.scrollTop - 700), behavior: 'smooth' });
+  toast('🐢 너무 빨리 내리셨어요. 천천히 꼼꼼히 읽어 주세요.');
+  return true;
+}
+
+function hitBottom() {
+  if (loading || reachedEnd) return;
+  if (extraIdx >= EXTRA.length) return unlock();
+  loading = true;
+  const loader = document.createElement('div');
+  loader.className = 'loader';
+  loader.textContent = '약관을 불러오는 중…';
+  terms.append(loader);
+  setTimeout(() => {
+    loader.remove();
+    terms.append(clauseEl(EXTRA[extraIdx], true));
+    extraIdx++;
+    $('ver').textContent = `v1.0.${extraIdx}`;
+    $('ver').classList.remove('bump');
+    void $('ver').offsetWidth;
+    $('ver').classList.add('bump');
+    $('added').textContent = extraIdx;
+    toast(`${UPDATE_MSGS[(extraIdx - 1) % UPDATE_MSGS.length]} (v1.0.${extraIdx})`);
+    loading = false;
+    updateRead();
+  }, 700);
+}
+
+terms.addEventListener('scroll', () => {
+  updateRead();
+  if (tooFast()) return;
+  if (terms.scrollTop + terms.clientHeight >= terms.scrollHeight - 8) hitBottom();
+});
+
+function unlock() {
+  reachedEnd = true;
+  $('lockHint').textContent = '이제 체크만 하면 돼요. 쉬워요. 🙂';
+  agree.classList.remove('locked');
+  chk.disabled = false;
+  toast('✅ 약관을 다 읽으셨어요! 이제 동의만 하면 돼요.');
+}
+
+// ── 2. 도망가는 체크박스 ──
+function placeAgree(x, y) {
+  agree.style.left = x + 'px';
+  agree.style.top = y + 'px';
+}
+function placeCenter() {
+  placeAgree((zone.clientWidth - agree.offsetWidth) / 2, (zone.clientHeight - agree.offsetHeight) / 2 + 12);
+}
+placeCenter();
+// 화면 크기나 폰트가 바뀌어 크기가 달라지면 다시 가운데로 (도망치기 전까지만)
+const ro = new ResizeObserver(() => { if (!escapes) placeCenter(); });
+ro.observe(zone);
+ro.observe(agree);
+
+function taunt(msg) {
+  $('taunt').hidden = false;
+  $('taunt').textContent = msg;
+  $('taunt').classList.remove('pop');
+  void $('taunt').offsetWidth;
+  $('taunt').classList.add('pop');
+}
+
+// 놀이터 안에서 랜덤 자리 10개를 뽑아, 커서에서 가장 먼 곳으로 이동
+function flee(px, py) {
+  const now = performance.now();
+  if (now - lastFlee < 250) return;   // 한 번 도망친 직후엔 잠깐 쉼 (연속 카운트 방지)
+  lastFlee = now;
+  escapes++;
+  $('escapes').textContent = escapes + btnEscapes;
+
+  const z = zone.getBoundingClientRect();
+  const w = agree.offsetWidth, h = agree.offsetHeight;
+  const maxX = Math.max(6, zone.clientWidth - w - 6), minY = 34, maxY = Math.max(minY, zone.clientHeight - h - 6);
+  let best = null, bestD = -1;
+  for (let i = 0; i < 10; i++) {
+    const x = 6 + Math.random() * (maxX - 6), y = minY + Math.random() * (maxY - minY);
+    const d = Math.hypot(z.left + x + w / 2 - px, z.top + y + h / 2 - py);
+    if (d > bestD) { bestD = d; best = [x, y]; }
+  }
+  placeAgree(...best);
+
+  if (escapes >= MAX_ESCAPE) {
+    tired = true;
+    agree.classList.add('tired');
+    taunt('헥헥… 졌다. 체크하세요 😮‍💨');
+  } else {
+    taunt(TAUNTS[(escapes - 1) % TAUNTS.length]);
+  }
+}
+
+// 마우스: 가까이 오기만 해도 도망
+document.addEventListener('pointermove', e => {
+  if (!reachedEnd || tired || e.pointerType !== 'mouse') return;
+  const r = agree.getBoundingClientRect();
+  const dx = Math.max(r.left - e.clientX, 0, e.clientX - r.right);
+  const dy = Math.max(r.top - e.clientY, 0, e.clientY - r.bottom);
+  if (Math.hypot(dx, dy) < FLEE_DIST) flee(e.clientX, e.clientY);
+});
+
+// 터치·키보드·간신히 클릭한 경우: 체크를 취소시키고 도망
+chk.addEventListener('click', e => {
+  if (tired) return;
+  e.preventDefault();
+  flee(e.clientX || innerWidth / 2, e.clientY || innerHeight / 2);
+});
+
+chk.addEventListener('change', () => {
+  $('submit').disabled = !chk.checked;
+  if (chk.checked) $('taunt').hidden = true;
+  // 딱 한 번: 체크하고 1.2초 뒤 "세션 만료"로 체크가 풀림
+  if (chk.checked && !expiredOnce) {
+    expiredOnce = true;
+    setTimeout(() => {
+      if (!chk.checked || $('confirm').open) return;
+      chk.checked = false;
+      $('submit').disabled = true;
+      toast('⏰ 세션이 만료되어 체크가 풀렸어요. 다시 체크해 주세요.');
+    }, 1200);
+  }
+});
+
+// ── 3. 도망가는 동의 버튼: 화면 전체를 돌아다님 ──
+const submit = $('submit');
+const BTN_TAUNTS = ['안 돼요', '어림없지', '여기요~', '저기요~', '놓쳤다!', '😜', '느리다 느려', '반대쪽이에요',
+  '거의 잡을 뻔', '숨 차…', '헉헉'];
+
+function moveSubmit(x, y) {
+  submit.style.left = x + 'px';
+  submit.style.top = y + 'px';
+}
+
+function fleeSubmit(px, py) {
+  const now = performance.now();
+  if (now - lastBtnFlee < 250) return;
+  lastBtnFlee = now;
+
+  // 처음 도망칠 때: 지금 자리에서 그대로 떼어 내 fixed로 → 원래 자리엔 안내 문구
+  if (!submit.classList.contains('loose')) {
+    const r = submit.getBoundingClientRect();
+    submit.classList.add('loose');
+    moveSubmit(r.left, r.top);
+    $('slotHint').hidden = false;
+    void submit.offsetWidth;   // 현재 위치를 먼저 확정해야 다음 이동이 애니메이션됨
+  }
+
+  btnEscapes++;
+  $('escapes').textContent = escapes + btnEscapes;
+
+  // 글자를 먼저 바꿔야 바뀐 버튼 크기로 자리를 잡음
+  if (btnEscapes >= MAX_BTN_ESCAPE) {
+    btnTired = true;
+    submit.classList.add('tired');
+    submit.textContent = '헥헥… 동의하기';
+  } else {
+    submit.textContent = BTN_TAUNTS[(btnEscapes - 1) % BTN_TAUNTS.length];
+  }
+
+  // 화면 안 랜덤 자리 12개 중 커서에서 가장 먼 곳
+  const w = submit.offsetWidth, h = submit.offsetHeight, m = 16;
+  let best = null, bestD = -1;
+  for (let i = 0; i < 12; i++) {
+    const x = m + Math.random() * Math.max(0, innerWidth - w - m * 2);
+    const y = m + Math.random() * Math.max(0, innerHeight - h - m * 2);
+    const d = Math.hypot(x + w / 2 - px, y + h / 2 - py);
+    if (d > bestD) { bestD = d; best = [x, y]; }
+  }
+  moveSubmit(...best);
+}
+
+// 마우스: 가까이 오기만 해도 도망 (체크돼서 버튼이 켜졌을 때만)
+document.addEventListener('pointermove', e => {
+  if (submit.disabled || btnTired || $('confirm').open || e.pointerType !== 'mouse') return;
+  const r = submit.getBoundingClientRect();
+  const dx = Math.max(r.left - e.clientX, 0, e.clientX - r.right);
+  const dy = Math.max(r.top - e.clientY, 0, e.clientY - r.bottom);
+  if (Math.hypot(dx, dy) < BTN_FLEE_DIST) fleeSubmit(e.clientX, e.clientY);
+});
+
+// 창 크기가 바뀌어 화면 밖으로 나가면 안쪽으로 다시 넣기
+addEventListener('resize', () => {
+  if (!submit.classList.contains('loose')) return;
+  const r = submit.getBoundingClientRect();
+  moveSubmit(Math.min(r.left, innerWidth - r.width - 16), Math.min(r.top, innerHeight - r.height - 16));
+});
+
+// ── 4. 확인 창: 예/아니오가 자리를 바꿈 ──
+submit.addEventListener('click', e => {
+  // 터치·키보드·간신히 클릭한 경우: 안 눌리고 도망
+  if (!btnTired) return fleeSubmit(e.clientX || innerWidth / 2, e.clientY || innerHeight / 2);
+  $('dlgMsg').textContent = `동의하시면 위 약관 ${BASE.length + extraIdx}개 조항의 적용을 받게 됩니다.`;
+  $('confirm').showModal();
+  $('no').focus();
+});
+
+function swapButtons() {
+  if (swaps >= MAX_SWAP) return false;
+  swaps++;
+  const flip = swaps % 2 === 1;
+  $('yes').style.order = flip ? 0 : 1;
+  $('no').style.order = flip ? 1 : 0;
+  $('dlgMsg').textContent = SWAP_MSGS[swaps - 1];
+  return true;
+}
+$('yes').addEventListener('pointerenter', e => { if (e.pointerType === 'mouse') swapButtons(); });
+$('yes').addEventListener('click', () => { if (!swapButtons()) finish(); });
+
+function sayNo() {
+  $('confirm').close();
+  chk.checked = false;
+  $('submit').disabled = true;
+  toast('🤔 그럼 천천히 다시 생각해 보시고 체크해 주세요.');
+}
+$('no').addEventListener('click', sayNo);
+$('confirm').addEventListener('cancel', e => {
+  e.preventDefault();   // Esc로는 못 나감 — 진행 중이면 무시, 아니면 "아니오"로 처리
+  if (!finishing) sayNo();
+});
+
+// ── 5. 마지막: 99%에서 괜히 멈추는 로딩 ──
+const wait = ms => new Promise(r => setTimeout(r, ms));
+async function finish() {
+  finishing = true;
+  $('btns').hidden = true;
+  $('progress').hidden = false;
+  $('confirm').querySelector('h2').textContent = '가입 처리 중…';
+  $('dlgMsg').textContent = '잠시만 기다려 주세요.';
+  await wait(50);
+  $('bar').style.width = '99%';
+  $('pct').textContent = '99%';
+  await wait(1600);
+  $('dlgMsg').textContent = '거의 다 됐어요…';
+  await wait(2200);
+  $('dlgMsg').textContent = '서버가 약관을 한 번 더 읽는 중이에요…';
+  $('pct').textContent = '99.9%';
+  await wait(1800);
+  $('bar').style.width = '100%';
+  $('pct').textContent = '100%';
+  await wait(500);
+  showResult();
+}
+
+function showResult() {
+  clearInterval(timer);
+  const ms = performance.now() - startTime;
+  $('confirm').close();
+  $('game').hidden = true;
+  $('done').hidden = false;
+  $('rTime').textContent = fmtTime(ms);
+  $('rClauses').textContent = BASE.length + extraIdx + '개';
+  $('rEscapes').textContent = escapes + btnEscapes + '번';
+  $('rBounces').textContent = bounces + '번';
+  const sec = ms / 1000;
+  $('rank').textContent = sec < 90 ? '🏆 인내심 만렙: 약관 마스터'
+    : sec < 180 ? '😤 킹받았지만 버텨낸 사람'
+    : '🧘 해탈의 경지에 이른 회원';
+  window.scrollTo(0, 0);
+}
+
+$('again').addEventListener('click', () => location.reload());
+</script>
+</body>
+</html>
