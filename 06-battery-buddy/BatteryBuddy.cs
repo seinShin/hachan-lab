@@ -68,8 +68,9 @@ namespace BatteryBuddy
                 case Mood.Happy: return "기분 최고! 뭐든 할 수 있어";
                 case Mood.Smile: return "아직 괜찮아요 :)";
                 case Mood.Worried: return "슬슬 불안해지는데…";
-                case Mood.Crying: return "살려줘… 충전기 주세요 😭";
-                case Mood.Charging: return "냠냠, 전기 먹는 중 ⚡";
+                // 이모지는 넣지 않음: 작은 창은 맑은 고딕으로 그리는데, 이 폰트엔 이모지가 없어서 네모(□)로 나옴
+                case Mood.Crying: return "살려줘… 충전기 주세요 ㅠㅠ";
+                case Mood.Charging: return "냠냠, 전기 먹는 중!";
                 default: return "배터리가 없는 기기예요. 쿨쿨…";
             }
         }
